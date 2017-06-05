@@ -1,0 +1,20 @@
+export CLYDESH_HOME=${CLYDESHDIR:-$HOME}/.clydesh
+
+autoload -U +X compinit && compinit
+autoload -U +X bashcompinit && bashcompinit
+
+_load_script() {
+  if [[ -s "${CLYDESH_HOME}/.${1}shrc"  ]]; then
+    source ${CLYDESH_HOME}/.${1}shrc
+  elif [[ -s "${CLYDESH_HOME}/${1}" ]]; then
+    source ${CLYDESH_HOME}/${1}
+  fi
+}
+
+_load_many() {
+  for script in "$@"; do
+    _load_script $script
+  done
+}
+
+_load_many util docker

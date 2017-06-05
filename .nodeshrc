@@ -1,0 +1,4 @@
+_packagenode() {
+  node -e 'var e = require('./package.json').engines; console.log(e && e.node ? e.node.replace(/[^\d.]+/g, "") : ""'
+}
+

@@ -1,0 +1,38 @@
+workspace () {
+  cd ~/workspace/$1
+}
+
+export PARENT_ENV_FILE=.parentenv
+export LOCAL_ENV_FILE=.localenv
+
+loadfile () {
+  filepath=$1
+  msg=$2
+  if [ -f $1 ]
+  then
+    echo $msg;
+    source $filepath;
+  fi
+}
+
+parentenv () {
+  loadfile ../$PARENT_ENV_FILE "loading file $PARENT_ENV_FILE from parent directory";
+  loadfile ./$PARENT_ENV_FILE "loading file $PARENT_ENV_FILE"
+}
+
+localenv () {
+  loadfile ./$LOCAL_ENV_FILE "loading file $LOCAL_ENV_FILE"
+}
+
+cdl () {
+  cd $1
+  parentenv
+  localenv
+}
+
+grenv () {
+  env | grep $1
+}
+
+parentenv
+localenv
