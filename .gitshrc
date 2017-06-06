@@ -1,0 +1,39 @@
+alias gitrmbranch='git branch -r | awk "{print $1}" | egrep -v -f /dev/fd/0 <(git branch -vv | grep origin) | awk "{print $1}" | xargs git branch -d'
+alias gpom='git pull --rebase origin master'
+alias gs='git status'
+alias glog='git log --graph --oneline --decorate --date=relative --all'
+alias gaddmit='git add .; git commit -m'
+
+gitf() {
+  git checkout -b feature/$1
+}
+
+gitDeployTags() {
+  git tag --points-at HEAD | grep d-*-*
+}
+
+git-dtags() {
+  a=( $(gitDeployTags) )
+  for tag in "${a[@]}"; do
+    echo $tag
+  done
+}
+
+hasAll() {
+  case $1 in "d-ALL-"*) return 0 ;; esac
+  return 1
+}
+
+gitCountries() {
+  a=( $(gitDeployTags) )
+  local tmp
+  for tmp in "${a[@]}"; do
+    c=$(echo $tmp | awk -F "-" '/d/{print $2}')
+    echo $c
+  done
+}
+
+git-hasall() {
+  a=( $(gitDeployTags) )
+  if hasAll "${a[@]}"; then echo "y"; else echo "n"; fi
+}
