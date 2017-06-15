@@ -17,4 +17,4 @@ _load_many() {
   done
 }
 
-_load_many util docker git
+_load_many util docker git node
