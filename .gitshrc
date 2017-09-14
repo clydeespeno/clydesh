@@ -37,3 +37,13 @@ git-hasall() {
   a=( $(gitDeployTags) )
   if hasAll "${a[@]}"; then echo "y"; else echo "n"; fi
 }
+
+gitrebase() {
+  [ -n "$1" ] && git pull --rebase origin $1
+}
+
+_gitrebase_completion() {
+  local remotes=`git branch -r | awk -F "origin/" '{print $2}'`
+  COMPREPLY=($(compgen -W "$remotes"))
+  return 0
+} && complete -F _gitrebase_completion gitrebase
