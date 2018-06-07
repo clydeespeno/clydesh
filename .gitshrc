@@ -38,6 +38,16 @@ git-hasall() {
   if hasAll "${a[@]}"; then echo "y"; else echo "n"; fi
 }
 
+gitcleanup() {
+  ignore=${1:-master}
+  git fetch --prune
+  git checkout $ignore
+  git add .
+  git stash
+  git pull --rebase
+  git branch | grep -v "master" | xargs git branch -D
+}
+
 gitrebase() {
   [ -n "$1" ] && git pull --rebase origin $1
 }
