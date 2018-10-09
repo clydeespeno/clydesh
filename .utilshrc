@@ -34,5 +34,25 @@ grenv () {
   env | grep $1
 }
 
+sourceload () {
+  profile=~/.profile
+  case "$SHELL" in
+    /bin/bash )
+      profile=~/.bash_profile
+      ;;
+    /bin/zsh )
+      profile=~/.zshrc
+      ;;
+    /bin/fish )
+      profile=/.config/fish/config.fish
+      ;;
+    * )
+      profile=~/.profile
+      ;;
+  esac
+  echo "reloading $profile"
+  source $profile
+}
+
 parentenv
 localenv
