@@ -1,74 +1,97 @@
-k8_set_cluster() {
-  kubectl config set-cluster $1 --server=$2 --insecure-skip-tls-verify=true
-  $REDMART_SCRIPTS_HOME/redmart-k8s-login_darwin_amd64 --write
-  kubectl config set-context $1 --cluster=$1 --user=clyde@redmart.com
-}
+export KUBE_NAMESPACE="default"
+[ -f "$HOME/.kubenamespace" ] && export KUBE_NAMESPACE=`cat $HOME/.kubenamespace`
 
-k8_set_dev() {
-  k8_set_cluster alpha https://k8s-api.microservices.alpha.rm.sg
-}
-
-k8_set_prod() {
-  k8_set_cluster production https://k8s-api.microservices.rm.sg
-}
-
-k8_use_dev() {
-  kubectl config use-context alpha
-}
-
-k8_use_prod() {
-  kubectl config use-context production
-}
-
-k8_log_service() {
-  name=`echo $1 | perl -n -e '/^(.*?-(service|processor|api)).*/ && print $1'`
-  echo "kubectl logs $1 -c $name -n microservice ${@:2}"
-  kubectl logs $1 -c $name -n microservice ${@:2}
-}
-
-k8_get_service() {
-  output=`kubectl get pods -n microservice`
-  echo $output | head -n 1
-  if [ ! -z $1 ]; then
-    echo $output | tail -n +2 | grep $1
+function k-ns() {
+  if [ -n "$1" ]; then
+    echo "$1" > ~/.kubenamespace
+    export KUBE_NAMESPACE="$1"
   else
-    echo $output | tail -n +2 
+    cat ~/.kubenamespace
   fi
 }
 
-k8_get_events() {
-  echo "kubectl get events -n microservice"
-  output=`kubectl get events -n microservice`
-  echo $output | head -n 1
-  if [ ! -z $1 ]; then
-    echo $output | tail -n +2 | grep $1
-  else
-    echo $output | tail -n +2
-  fi
+function kn() {
+  kubectl -n $KUBE_NAMESPACE $@
 }
 
-k8_get_cron() {
-  output=`kubectl get cronjobs -n microservice`
-  echo $output | head -n 1
-  if [ ! -z $1 ]; then
-    echo $output | tail -n +2 | grep $1
-  else
-    echo $output | tail -n +2
-  fi
+function k-ex() {
+  kn exec -it $@
 }
 
-k8_delete_pod() {
-  echo "kubectl -n microservice delete pod $1"
-  kubectl -n microservice delete pod $1
+function k-bash() {
+  k-ex $@ bash
 }
 
-k8_desc_service() {
-  echo "kubectl describe pod $1 -n microservice ${@:2}"
-  kubectl describe pod $1 -n microservice ${@:2}
+function k-sh() {
+  k-ex $@ sh
 }
 
-_k8_completion() {
-  local services=`kubectl get pods -n microservice | awk 'FNR > 1 {print $1}'`
+function k-log() {
+  kn logs $@
+}
+
+function k-pod() {
+  kn get pods $@
+}
+
+function k-dpod() {
+  kn describe pod $@
+}
+
+function k-dep() {
+  kn get deploy $@
+}
+
+function k-ddep() {
+  kn describe deploy $@
+}
+
+function k-ser() {
+  kn get service $@
+}
+
+function k-dser() {
+  kn describe service $@
+}
+
+function k-sec() {
+  kn get secret $@
+}
+
+function k-dsec() {
+  kn describe secret $@
+}
+
+function k-sec64() {
+  k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 --decode
+}
+
+function _k_pod_completion() {
+  local services=`kn get pods | tail -n +2 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$services"))
   return 0
-} && complete -F _k8_completion k8_log_service k8_desc_service k8_delete_pod
+}
+
+function _k_deploy_completion() {
+  local deploys=`kn get deploy | tail -n +2 | awk '{print $1;}'`
+  COMPREPLY=($(compgen -W "$deploys"))
+  return 0
+}
+
+function _k_service_completion() {
+  local servs=`kn get service | tail -n +2 | awk '{print $1;}'`
+  COMPREPLY=($(compgen -W "$servs"))
+  return 0
+}
+
+function _k_secret_completion() {
+  local secrets=`kn get secret | tail -n +2 | awk '{print $1;}'`
+  COMPREPLY=($(compgen -W "$secrets"))
+  return 0
+}
+
+complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod
+complete -F _k_deploy_completion k-dep k-ddep
+complete -F _k_service_completion k-ser k-dser
+complete -F _k_secret_completion k-sec k-dsec k-sec64
+complete -F __start_kubectl k ka ks kp kn
