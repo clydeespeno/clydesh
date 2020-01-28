@@ -62,6 +62,10 @@ function k-dsec() {
   kn describe secret $@
 }
 
+function k-watch() {
+  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods | grep $1"
+}
+
 function k-sec64() {
   k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 --decode
 }
