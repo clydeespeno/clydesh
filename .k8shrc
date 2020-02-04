@@ -11,7 +11,7 @@ function k-ns() {
 }
 
 function kn() {
-  kubectl -n $KUBE_NAMESPACE $@
+  kubectl -n `cat ~/.kubenamespace` $@
 }
 
 function k-ex() {
@@ -38,8 +38,20 @@ function k-dpod() {
   kn describe pod $@
 }
 
+function k-xpod() {
+  kn delete pod $@  
+}
+
+function k-fwd() {
+  kn port-forward $@
+}
+
 function k-dep() {
   kn get deploy $@
+}
+
+function k-xdep() {
+  kn delete deploy $@
 }
 
 function k-ddep() {
@@ -63,11 +75,26 @@ function k-dsec() {
 }
 
 function k-watch() {
-  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods | grep $1"
+  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods ${@:2} | grep $1"
 }
 
 function k-sec64() {
   k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 --decode
+}
+
+function k-cluster() {
+  local context=$1
+  if [ -z "$context" ]; then
+    kubectl config current-context
+  else
+    kubectl config use-context $context
+  fi
+}
+
+function _k_ns_completion() {
+  local namespaces=`kubectl get namespaces | tail -n +2 | awk '{print $1;}'`
+  COMPREPLY=($(compgen -W "$namespaces"))
+  return 0
 }
 
 function _k_pod_completion() {
@@ -94,8 +121,16 @@ function _k_secret_completion() {
   return 0
 }
 
-complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod
-complete -F _k_deploy_completion k-dep k-ddep
+function _k_cluster_completion() {
+  local clusters=`kubectl config view -o json | jq -r '.contexts[].name'`
+  COMPREPLY=($(compgen -W "$clusters"))
+  return 0
+}
+
+complete -F _k_ns_completion k-ns
+complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod k-fwd
+complete -F _k_deploy_completion k-dep k-ddep k-xdep
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec64
+complete -F _k_cluster_completion k-cluster
 complete -F __start_kubectl k ka ks kp kn
