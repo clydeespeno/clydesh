@@ -133,4 +133,4 @@ complete -F _k_deploy_completion k-dep k-ddep k-xdep
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec64
 complete -F _k_cluster_completion k-cluster
-complete -F __start_kubectl k ka ks kp kn
+complete -F __start_kubectl k kn
