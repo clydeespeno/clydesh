@@ -54,5 +54,17 @@ sourceload () {
   source $profile
 }
 
+complete_ls() {
+  cwd=$PWD
+  dir=$cwd/$1
+  function _complete_ls() {
+    local comp=$(ls $dir)
+    COMPREPLY=($(compgen -W "$comp"))
+    return 0
+  }
+
+  complete -F _complete_ls ${@:2}
+}
+
 parentenv
 localenv
