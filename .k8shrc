@@ -3,6 +3,8 @@ export KUBE_NAMESPACE="default"
 
 export KUBE_PORT_ALIAS_FILE=${KUBE_PORT_ALIAS_FILE:-$HOME/.kubeportaliases}
 
+export KUBE_NAMESPACE_CLUSTER_ALIAS_FILE=${KUBE_NAMESPACE_CLUSTER_ALIAS_FILE:-$HOME/.kubenamespaceclusteraliases}
+
 function k-ns() {
   if [ -n "$1" ]; then
     echo "$1" > ~/.kubenamespace
@@ -56,6 +58,18 @@ function _parseport() {
 function k-fwd() {
   port=$(_parseport $2)
   kn port-forward $1 $port
+}
+
+function ks() {
+  ns_alias=$(cat ${KUBE_NAMESPACE_CLUSTER_ALIAS_FILE} | grep "^$1\s")
+  if [ -z "$ns_alias" ]; then
+    echo "unknown namespace cluster alias $1"
+  else
+    cluster=$(echo $ns_alias | awk '{print $2}')
+    ns=$(echo $ns_alias | awk '{print $3}')
+    k-cluster $cluster
+    k-ns $ns
+  fi
 }
 
 function k-dep() {
@@ -162,6 +176,12 @@ function _k_fwd_completion() {
   return 0
 }
 
+function _ks_completion() {
+  reply=$(cat $KUBE_NAMESPACE_CLUSTER_ALIAS_FILE | awk '{print $1;}')
+  COMPREPLY=($(compgen -W "$reply"))
+  return 0
+}
+
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
 complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale
@@ -169,3 +189,4 @@ complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec64
 complete -F _k_cluster_completion k-cluster
 complete -F _k_fwd_completion k-fwd
+complete -F _ks_completion ks
