@@ -17,4 +17,4 @@ _load_many() {
   done
 }
 
-_load_many util docker git node k8 tunnels
+_load_many util docker git node k8 tunnels terraform

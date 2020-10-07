@@ -47,6 +47,21 @@ function k-xpod() {
   kn delete pod $@
 }
 
+function k-pod-reload() {
+  pods=$(k-pod -l "$1" | tail +2 | awk '{print $1;}')
+  for pod in $(compgen -W "$pods"); do
+    echo "deleting pod $pod"
+    k-xpod $pod
+    up=false
+    while [[ $up == "false" ]]; do
+      down=$(k-pod | grep "${pod%-*}" | grep "0/" | head)
+      [ -z $down ] && up=true
+      [[ $up == "false" ]] && echo "Still restarting, retrying in 1 sec (down = $(echo "$down" | awk '{print $1": "$2}'))" && sleep 1
+    done
+    echo ""
+  done
+}
+
 function _parseport() {
   parsed=$(cat ${KUBE_PORT_ALIAS_FILE} | grep -w $1 | head -1 | awk '{print $2}')
   if [ -z "$parsed" ]; then
@@ -78,6 +93,14 @@ function k-dep() {
 
 function k-xdep() {
   kn delete deploy $@
+}
+
+function k-dep-apply() {
+  deps=$(k-dep -l "$1" | tail +2 | awk '{print $1;}')
+
+  for dep in $(compgen -W "$deps"); do
+    $2 $dep ${@:3
+  done
 }
 
 function k-scale-dep() {
@@ -116,8 +139,42 @@ function k-watch() {
   watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods ${@:2} | grep \"$service\""
 }
 
+function k-watch-l() {
+  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods -l $1"
+}
+
 function k-sec64() {
   k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 --decode
+}
+
+function k-dep-rs() {
+  revision=$(k-dep $1 -o json | jq -r '.metadata.annotations["deployment.kubernetes.io/revision"]')
+  template=$(kn rollout history deployment/$1 --revision=${revision} | grep pod-template-hash)
+  hash=${template#*=}
+  echo "$1-$hash"  
+}
+
+function k-dep-restart() {
+  kn rollout restart deployment/$1
+
+  sleep 2
+  rshash=`k-dep-rs $1`
+
+  echo "new replica set is $rshash"
+  donecreating=false
+  while [[ $donecreating == "false" ]]; do
+    cr=$(k-pod | grep "$rshash" | grep "Creating" | head)
+    [ -z $cr ] && donecreating=true
+    [[ $donecreating == "false" ]] && echo "Still creating, $(k-pod | grep "$rshash" | head)" && sleep 1
+  done
+
+  up=false
+  while [[ $up == "false" ]]; do
+    down=$(k-pod | grep "$rshash" | grep "0/" | head)
+    [ -z $down ] && up=true
+    [[ $up == "false" ]] && echo "Still restarting, retrying in 1 sec (down = $(echo "$down" | awk '{print $1": "$2}'))" && sleep 1
+  done
+  echo ""
 }
 
 function k-cluster() {
@@ -184,7 +241,7 @@ function _ks_completion() {
 
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
-complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale
+complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec64
 complete -F _k_cluster_completion k-cluster
