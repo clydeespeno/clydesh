@@ -99,7 +99,7 @@ function k-dep-apply() {
   deps=$(k-dep -l "$1" | tail +2 | awk '{print $1;}')
 
   for dep in $(compgen -W "$deps"); do
-    $2 $dep ${@:3
+    $2 $dep ${@:3}
   done
 }
 
