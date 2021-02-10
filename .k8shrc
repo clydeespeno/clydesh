@@ -144,7 +144,18 @@ function k-watch-l() {
 }
 
 function k-sec64() {
-  k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 --decode
+  all_data=$(k-sec $1 -o json | jq -r ".data")
+  if [ -z "$2" ]; then
+    keys=($(echo "$all_data" | jq "keys[]" -r))
+    for k in $keys; do
+      echo "$k:"
+      echo $all_data | jq ".[\"$k\"]" -r | base64 --decode
+      echo ""
+      echo ""
+    done
+  else
+    echo $all_data | jq ".[\"$2\"]" -r | base64 --decode
+  fi
 }
 
 function k-dep-rs() {
@@ -216,6 +227,20 @@ function _k_secret_completion() {
   return 0
 }
 
+function _k_sec64_completion() {
+  local reply=""
+  if [ ${COMP_CWORD} == "1" ]; then
+    reply=$(kn get secret | tail -n +2 | awk '{print $1;}')
+    COMPREPLY=($(compgen -W "$reply"))
+  elif [ ${COMP_CWORD} == "2" ]; then
+    local secret=${COMP_WORDS[1]}
+    all_data=$(k-sec $secret -o json | jq -r ".data")
+    COMPREPLY=($(echo "$all_data" | jq "keys[]" -r))
+  fi
+  return 0
+}
+
+
 function _k_cluster_completion() {
   local clusters=`kubectl config view -o json | jq -r '.contexts[].name'`
   COMPREPLY=($(compgen -W "$clusters"))
@@ -244,6 +269,7 @@ complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
 complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec64
+complete -F _k_sec64_completion k-sec64
 complete -F _k_cluster_completion k-cluster
 complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
