@@ -16,8 +16,16 @@ loadfile () {
 }
 
 parentenv () {
-  loadfile ../$PARENT_ENV_FILE "loading file $PARENT_ENV_FILE from parent directory";
-  loadfile ./$PARENT_ENV_FILE "loading file $PARENT_ENV_FILE"
+  _IFS=${IFS}
+  IFS="/"
+  path_tokens=($(pwd))
+  curr_path=""
+  for p in $path_tokens; do
+    curr_path="$curr_path/$p"
+    parent_env_file=$curr_path/$PARENT_ENV_FILE
+    loadfile $parent_env_file "loading file $PARENT_ENV_FILE from $parent_env_file";
+  done
+  IFS=${_IFS}
 }
 
 localenv () {

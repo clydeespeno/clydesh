@@ -158,6 +158,19 @@ function k-sec64() {
   fi
 }
 
+function k-sec-mount() {
+  all_data=$(k-sec $1 -o json | jq -r ".data")
+  dir=${2:-$(pwd)}
+  mkdir -p $dir 
+  
+  keys=($(echo "$all_data" | jq "keys[]" -r))
+
+  for k in $keys; do
+    echo "mounting $k to $dir/$k"
+    echo $all_data | jq ".[\"$k\"]" -r | base64 --decode > $dir/$k
+  done
+}
+
 function k-dep-rs() {
   revision=$(k-dep $1 -o json | jq -r '.metadata.annotations["deployment.kubernetes.io/revision"]')
   template=$(kn rollout history deployment/$1 --revision=${revision} | grep pod-template-hash)
@@ -268,7 +281,7 @@ complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
 complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart
 complete -F _k_service_completion k-ser k-dser
-complete -F _k_secret_completion k-sec k-dsec k-sec64
+complete -F _k_secret_completion k-sec k-dsec k-sec-mount
 complete -F _k_sec64_completion k-sec64
 complete -F _k_cluster_completion k-cluster
 complete -F _k_fwd_completion k-fwd

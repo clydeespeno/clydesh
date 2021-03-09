@@ -52,8 +52,26 @@ gitrebase() {
   [ -n "$1" ] && git pull --rebase origin $1
 }
 
+git-merge-to() {
+  PUSH=false
+  for p in "$@"; do
+    case "$p" in
+      --push) PUSH=true; break; ;;
+    esac
+  done
+
+  target=$1
+  current=$(git branch --show-current)
+  git checkout $target
+  git merge $current
+  if [[ $PUSH=="true" ]]; then
+    git push
+  fi
+  git checkout $current
+}
+
 _gitrebase_completion() {
   local remotes=`git branch -r | awk -F "origin/" '{print $2}'`
   COMPREPLY=($(compgen -W "$remotes"))
   return 0
-} && complete -F _gitrebase_completion gitrebase
+} && complete -F _gitrebase_completion gitrebase git-merge-to
