@@ -210,6 +210,10 @@ function k-cluster() {
   fi
 }
 
+function k-ap() {
+  k apply -f $1
+}
+
 function _k_ns_completion() {
   local namespaces=`kubectl get namespaces | tail -n +2 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$namespaces"))
@@ -219,6 +223,12 @@ function _k_ns_completion() {
 function _k_pod_completion() {
   local services=`kn get pods | tail -n +2 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$services"))
+  return 0
+}
+
+function _k_yaml_completion() {
+  local files=$(ls -p | grep "\.yaml")
+  COMPREPLY=($(compgen -W "$files"))
   return 0
 }
 
