@@ -211,7 +211,7 @@ function k-cluster() {
 }
 
 function k-ap() {
-  k apply -f $1
+  kubectl apply -f $1
 }
 
 function _k_ns_completion() {
