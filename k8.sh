@@ -274,7 +274,7 @@ function _k_fwd_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
     reply=$(kn get pods | tail -n +2 | awk '{print $1;}')
-  else if [ ${COMP_CWORD} == "2" ]
+  elif [ ${COMP_CWORD} == "2" ]; then
     reply=$(cat $KUBE_PORT_ALIAS_FILE | awk '{print $1}')
   fi
   COMPREPLY=($(compgen -W "$reply"))
