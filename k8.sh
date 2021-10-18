@@ -139,9 +139,16 @@ function k-watch() {
     service="."
   else
     service=""
-    for ser in "$@"; do
-      service="$ser|$service"
-    done
+    if [ -f $1 ]; then
+      tmp=( $(< "$1") )
+      for ser in $tmp; do
+        service="$ser|$service"
+      done
+    else
+      for ser in "$@"; do
+        service="$ser|$service"
+      done
+    fi
     service=$(echo $service | awk '{print substr( $0, 1, length($0)-1)}')
     echo "watching services $service"
   fi
