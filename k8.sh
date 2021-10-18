@@ -135,8 +135,17 @@ function k-dsec() {
 }
 
 function k-watch() {
-  service=${1:-"."}
-  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods ${@:2} | grep \"$service\""
+  if [ -z $1 ]; then
+    service="."
+  else
+    service=""
+    for ser in "$@"; do
+      service="$ser|$service"
+    done
+    service=$(echo $service | awk '{print substr( $0, 1, length($0)-1)}')
+    echo "watching services $service"
+  fi
+  watch -n 1 "kubectl -n $KUBE_NAMESPACE get pods | grep -E \"$service\""
 }
 
 function k-watch-l() {
