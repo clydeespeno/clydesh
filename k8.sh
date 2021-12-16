@@ -20,7 +20,7 @@ function kn() {
 }
 
 function k-ex() {
-  kn exec -it $@
+  kn exec $1 -- ${@:2}
 }
 
 function k-bash() {
