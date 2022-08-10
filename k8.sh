@@ -20,7 +20,7 @@ function kn() {
 }
 
 function k-ex() {
-  kn exec $1 -- ${@:2}
+  kn exec -it $1 -- ${@:2}
 }
 
 function k-bash() {
@@ -201,20 +201,13 @@ function k-dep-restart() {
   rshash=`k-dep-rs $1`
 
   echo "new replica set is $rshash"
-  donecreating=false
-  while [[ $donecreating == "false" ]]; do
-    cr=$(k-pod | grep "$rshash" | grep "Creating" | head)
-    [ -z $cr ] && donecreating=true
-    [[ $donecreating == "false" ]] && echo "Still creating, $(k-pod | grep "$rshash" | head)" && sleep 1
-  done
+}
 
-  up=false
-  while [[ $up == "false" ]]; do
-    down=$(k-pod | grep "$rshash" | grep "0/" | head)
-    [ -z $down ] && up=true
-    [[ $up == "false" ]] && echo "Still restarting, retrying in 1 sec (down = $(echo "$down" | awk '{print $1": "$2}'))" && sleep 1
-  done
-  echo ""
+function k-dep-rescale() {
+  rs=$(k-dep $1 -o yaml | yq -P e ".spec.replicas" -)
+  k-scale-dep $1 0
+  sleep 1
+  k-scale-dep $1 $rs 
 }
 
 function k-cluster() {
@@ -305,7 +298,7 @@ function _ks_completion() {
 
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
-complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart
+complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec-mount
 complete -F _k_sec64_completion k-sec64

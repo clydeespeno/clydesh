@@ -15,4 +15,4 @@ _load_many() {
   done
 }
 
-_load_many utils docker git node k8 ssh terraform
+_load_many utils docker git node k8 ssh terraform eks aws

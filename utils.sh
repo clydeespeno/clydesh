@@ -28,6 +28,26 @@ parentenv () {
   IFS=${_IFS}
 }
 
+get_gr() {
+  _IFS=${IFS}
+  IFS="/"
+  path_tokens=($(pwd))
+  curr_path=""
+  root="$(pwd)"
+  for p in $path_tokens; do
+    curr_path="$curr_path/$p"
+    if [ -d "$curr_path/.git" ] && [ "$curr_path" != "$root" ] ; then
+      root=$curr_path
+    fi
+  done
+  IFS=${_IFS}
+  echo $root
+}
+
+cd_gr() {
+  cd $(get_gr)/$1
+}
+
 localenv () {
   loadfile ./$LOCAL_ENV_FILE "loading file $LOCAL_ENV_FILE"
 }
@@ -72,6 +92,27 @@ complete_ls() {
   }
 
   complete -F _complete_ls ${@:2}
+}
+
+_complete_cd_gr() {
+  cwd=$(pwd)
+  gr=$(get_gr)
+  target=$gr/${COMP_WORDS[COMP_CWORD]}
+  if [ -d "$target" ]; then
+    cd $target
+  else
+    cd $gr
+  fi
+ 
+  COMPREPLY=( $(compgen -d) )
+  cd $cwd
+  return 0
+}
+
+complete -F _complete_cd_gr cd_gr
+
+cwdiff () {
+  wdiff -n -w $'\033[30;41m' -x $'\033[0m' -y $'\033[30;42m' -z $'\033[0m' $@
 }
 
 parentenv

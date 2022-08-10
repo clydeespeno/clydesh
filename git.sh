@@ -70,6 +70,14 @@ git-merge-to() {
   git checkout $current
 }
 
+git-retag() {
+  tag=$1
+  git tag -d $tag
+  git push --delete origin $tag
+  git tag $tag ${@:2}
+  git push --tags
+}
+
 _gitrebase_completion() {
   local remotes=`git branch -r | awk -F "origin/" '{print $2}'`
   COMPREPLY=($(compgen -W "$remotes"))
