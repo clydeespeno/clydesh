@@ -18,11 +18,11 @@ function cfvault_wrap() {
   result=$(curl -sX POST -H "X-Vault-Token: $(vault print token)" \
     -H "x-vault-wrap-ttl: 30m" \
     -H "Cf-Access-Token: $cf_token" \
-    "${address}v1/sys/wrapping/wrap" -d "$data")
+    "${address}/v1/sys/wrapping/wrap" -d "$data")
   echo "$result" | jq ".wrap_info.token" | xargs -n 1 -I {} bash -c 'echo wrapped token: {}'
   echo "unwrap with:"
   echo "  vault unwrap $(echo "$result" | jq -r ".wrap_info.token")"
-  echo "or use ${address}ui/vault/tools/unwrap and put the wrapping token"
+  echo "or use ${address}/ui/vault/tools/unwrap and put the wrapping token"
 }
 
 function cfvault_get_wrap_data() {
