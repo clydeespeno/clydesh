@@ -1,9 +1,16 @@
 export KUBE_NAMESPACE="default"
+export KUBE_CONTEXT=$(kubectl config current-context)
+
 [ -f "$HOME/.kubenamespace" ] && export KUBE_NAMESPACE=`cat $HOME/.kubenamespace`
+[ -f "$HOME/.kubecontext" ] && export KUBE_CONTEXT=`cat $HOME/.kubecontext`
 
 export KUBE_PORT_ALIAS_FILE=${KUBE_PORT_ALIAS_FILE:-$HOME/.kubeportaliases}
 
 export KUBE_NAMESPACE_CLUSTER_ALIAS_FILE=${KUBE_NAMESPACE_CLUSTER_ALIAS_FILE:-$HOME/.kubenamespaceclusteraliases}
+
+function k() {
+  kubectl --context=${KUBE_CONTEXT} $@
+}
 
 function k-ns() {
   if [ -n "$1" ]; then
@@ -11,12 +18,23 @@ function k-ns() {
     echo "switched to namespace \"$1\""
     export KUBE_NAMESPACE="$1"
   else
-    cat ~/.kubenamespace
+    echo $KUBE_NAMESPACE
+  fi
+}
+
+function k-ctx() {
+  if [ -n "$1" ]; then
+    echo "$1" > ~/.kubecontext
+    echo "switched to context \"$1\""
+    export KUBE_CONTEXT="$1"
+  else
+    echo $KUBE_CONTEXT
   fi
 }
 
 function kn() {
-  kubectl -n `cat ~/.kubenamespace` $@
+  echo "kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@"
+  kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@
 }
 
 function k-ex() {
@@ -80,9 +98,9 @@ function ks() {
   if [ -z "$ns_alias" ]; then
     echo "unknown namespace cluster alias $1"
   else
-    cluster=$(echo $ns_alias | awk '{print $2}')
+    ctx=$(echo $ns_alias | awk '{print $2}')
     ns=$(echo $ns_alias | awk '{print $3}')
-    k-cluster $cluster
+    k-ctx $ctx
     k-ns $ns
   fi
 }
@@ -96,7 +114,7 @@ function k-xdep() {
 }
 
 function k-dep-apply() {
-  deps=$(k-dep -l "$1" | tail +2 | awk '{print $1;}')
+  deps=$(k-dep -l "$1" | tail +3 | awk '{print $1;}')
 
   for dep in $(compgen -W "$deps"); do
     $2 $dep ${@:3}
@@ -160,7 +178,7 @@ function k-watch-l() {
 }
 
 function k-sec64() {
-  all_data=$(k-sec $1 -o json | jq -r ".data")
+  all_data=$(k-sec $1 -o json | tail -n +2 | jq -r ".data")
   if [ -z "$2" ]; then
     keys=($(echo "$all_data" | jq "keys[]" -r))
     for k in $keys; do
@@ -175,7 +193,7 @@ function k-sec64() {
 }
 
 function k-sec-mount() {
-  all_data=$(k-sec $1 -o json | jq -r ".data")
+  all_data=$(k-sec $1 -o json | tail -n +2 | jq -r ".data")
   dir=${2:-$(pwd)}
   mkdir -p $dir 
   
@@ -204,33 +222,66 @@ function k-dep-restart() {
 }
 
 function k-dep-rescale() {
-  rs=$(k-dep $1 -o yaml | yq -P e ".spec.replicas" -)
+  rs=$(k-dep $1 -o yaml | tail -n +2 | yq -P e ".spec.replicas" -)
   k-scale-dep $1 0
-  sleep 1
   k-scale-dep $1 $rs 
-}
-
-function k-cluster() {
-  local context=$1
-  if [ -z "$context" ]; then
-    kubectl config current-context
-  else
-    kubectl config use-context $context
-  fi
 }
 
 function k-ap() {
   kubectl apply -f $1
 }
 
+function k-sec-env() {
+  all_data=$(k-sec $1 -o json | jq -r ".data")
+  keys=($(echo "$all_data" | jq "keys[]" -r))
+  for k in $keys; do
+    if [ $# -eq 1 ] || [[ "$*" == *"$k"* ]]; then
+      echo "exporting $k"
+      eval "export $k=$(echo $all_data | jq ".[\"$k\"]" -r | base64 --decode)"
+    fi
+  done
+}
+
+function knd() {
+  kn describe $@
+}
+
+function kd() {
+  k describe $@
+}
+
+function kng() {
+  kn get $@
+}
+
+function kg() {
+  k get $@
+}
+
+function knx() {
+  kn delete $@
+}
+
+function kx() {
+  k delete $@
+}
+
+function kne() {
+  kn edit $@
+}
+
+function ke() {
+  k edit $@
+}
+
 function _k_ns_completion() {
-  local namespaces=`kubectl get namespaces | tail -n +2 | awk '{print $1;}'`
+  local namespaces=`kubectl --context $KUBE_CONTEXT get namespaces | tail -n +2 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$namespaces"))
   return 0
 }
 
 function _k_pod_completion() {
-  local services=`kn get pods | tail -n +2 | awk '{print $1;}'`
+  local services=`kn get pods | tail -n +3 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$services"))
   return 0
 }
@@ -242,19 +293,19 @@ function _k_yaml_completion() {
 }
 
 function _k_deploy_completion() {
-  local deploys=`kn get deploy | tail -n +2 | awk '{print $1;}'`
+  local deploys=`kn get deploy | tail -n +3 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$deploys"))
   return 0
 }
 
 function _k_service_completion() {
-  local servs=`kn get service | tail -n +2 | awk '{print $1;}'`
+  local servs=`kn get service | tail -n +3 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$servs"))
   return 0
 }
 
 function _k_secret_completion() {
-  local secrets=`kn get secret | tail -n +2 | awk '{print $1;}'`
+  local secrets=`kn get secret | tail -n +3 | awk '{print $1;}'`
   COMPREPLY=($(compgen -W "$secrets"))
   return 0
 }
@@ -262,7 +313,7 @@ function _k_secret_completion() {
 function _k_sec64_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
-    reply=$(kn get secret | tail -n +2 | awk '{print $1;}')
+    reply=$(kn get secret | tail -n +3 | awk '{print $1;}')
     COMPREPLY=($(compgen -W "$reply"))
   elif [ ${COMP_CWORD} == "2" ]; then
     local secret=${COMP_WORDS[1]}
@@ -273,16 +324,16 @@ function _k_sec64_completion() {
 }
 
 
-function _k_cluster_completion() {
-  local clusters=`kubectl config view -o json | jq -r '.contexts[].name'`
-  COMPREPLY=($(compgen -W "$clusters"))
+function _k_ctx_completion() {
+  local ctxs=`kubectl config view -o json | jq -r '.contexts[].name'`
+  COMPREPLY=($(compgen -W "$ctxs"))
   return 0
 }
 
 function _k_fwd_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
-    reply=$(kn get pods | tail -n +2 | awk '{print $1;}')
+    reply=$(kn get pods | tail -n +3 | awk '{print $1;}')
   elif [ ${COMP_CWORD} == "2" ]; then
     reply=$(cat $KUBE_PORT_ALIAS_FILE | awk '{print $1}')
   fi
@@ -296,12 +347,24 @@ function _ks_completion() {
   return 0
 }
 
+function _k_resource_completion() {
+  local reply=""
+  if [ ${COMP_CWORD} == "1" ]; then
+    reply=$(k  api-resources --verbs=list | tail -n +2 | awk '{print $1}')
+  elif [ ${COMP_CWORD} == "2" ]; then
+    reply=$(kn get ${COMP_WORDS[$COMP_CWORD-1]} | tail -n +3 | awk '{print $1}')
+  fi
+  COMPREPLY=($(compgen -W "$reply"))
+  return 0
+}
+
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
 complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale
 complete -F _k_service_completion k-ser k-dser
-complete -F _k_secret_completion k-sec k-dsec k-sec-mount
+complete -F _k_secret_completion k-sec k-dsec k-sec-mount k-sec-env
 complete -F _k_sec64_completion k-sec64
-complete -F _k_cluster_completion k-cluster
+complete -F _k_ctx_completion k-ctx
 complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
+complete -F _k_resource_completion knd kng knx kd kg kx kne ke

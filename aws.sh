@@ -38,7 +38,6 @@ function aws-switch() {
 function aws-kube-config() {
   profile=${AWS_PROFILE:-default}
   region=""
-  role_filter="system-master"
   while [[ "$#" -gt 0 ]]; do
     case $1 in
       --profile)
@@ -90,17 +89,27 @@ function aws-kube-config() {
     fi
   fi
   
-  for c in $clusters; do
-    if [[ -z $role_arn ]]; then
+  clusters_count=$(echo "$clusters" | grep -c "")
+ 
+  for c in $(echo $clusters); do
+    echo "updating config for cluster $c"
+    if [[ -z $role_arn ]] && [[ -n "$role_filter" ]]; then
       role_arn=$(aws iam list-roles --query 'Roles[*].Arn' --output json --profile $profile| jq -rc ".[]" | grep $c | grep $role_filter)
     fi
-
-    if [[ ! $clusters = *" "* ]] && [[ -z $alias ]]; then
-      alias="$c-$role_filter"
+    
+    if [[ -z $role_filter ]]; then
+      c_alias="$profile-$c"
+    else
+      c_alias="$profile-$c-$role_filter"
     fi
-    _cmd="aws eks update-kubeconfig --region $region --name $c --role-arn $role_arn --profile $profile --alias $alias"
+  
+    _cmd="aws eks update-kubeconfig --region $region --name $c --profile $profile --alias ${c_alias//_/-}"
+    if [[ -n $role_arn ]]; then
+      _cmd="$_cmd --role-arn $role_arn"
+    fi
+
     echo $_cmd
-    eval $_cmd
+    eval "$_cmd"
   done
   
 }

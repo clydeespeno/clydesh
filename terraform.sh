@@ -12,3 +12,7 @@ function tfip() {
 function tfpl() {
   tf providers lock -platform darwin_amd64 -platform linux_amd64 -platform darwin_arm64
 }
+
+function tfaa() {
+  tf apply -auto-approve
+}
