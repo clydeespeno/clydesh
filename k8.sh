@@ -109,6 +109,67 @@ function k-dep() {
   kn get deploy $@
 }
 
+function k-dep-container() {
+  container_name=$2
+  dep=$(kn get deploy $1 -o yaml | tail +2)
+  if [[ -z $container_name ]]; then
+    echo $dep | yq -P e ".spec.template.spec.containers[0]" -
+  else
+    echo $dep | yq -P e ".spec.template.spec.containers[] | select(.name == \"${container_name}\")"
+  fi
+}
+
+function k-dep-env() {
+  container=$(k-dep-container $1 $2)
+  # print envs from env property
+  for env in $(echo $container | yq -P e ".env[].name" -); do
+    env_map=$(echo $container | yq -P e ".env[] | select(.name == \"$env\")" -)
+    if [[ $(echo $env_map | yq -P e ".value" -) != "null" ]]; then
+      echo "$env=$(echo $env_map | yq -P e ".value" -)"
+    fi
+
+    if [[ $(echo $env_map | yq -P e ".valueFrom" -) != "null" ]]; then
+      value_from=$(echo $env_map | yq -P e ".valueFrom" -)
+      if [[ $(echo $value_from | yq -P e ".secretKeyRef" -) != "null" ]]; then
+        sec_name=$(echo $value_from | yq -P e ".secretKeyRef.name" -)
+        sec_key=$(echo $value_from | yq -P e ".secretKeyRef.key" -)
+        echo "**secret-from:$sec_name;$sec_key** $env=$(k-sec-value $sec_name $sec_key)"
+      fi
+      if [[ $(echo $value_from | yq -P e ".configMapKeyRef" -) != "null" ]]; then
+        cm_name=$(echo $value_from | yq -P e ".configMapKeyRef.name" -)
+        cm_key=$(echo $value_from | yq -P e ".configMapKeyRef.key" -)
+        echo "$env=$(k-cm-value $cm_name $cm_key)"
+      fi
+    fi
+  done
+
+  # render secrets in envFrom
+  for sec in $(echo $container | yq -P e '.envFrom[] | select(has("secretRef")) | .secretRef.name' -); do
+    all_data=$(k-sec $sec -o json | tail -n +2 | jq -r ".data")
+    keys=($(echo "$all_data" | jq "keys[]" -r))
+    for k in $keys; do
+      echo "**secret-from:$sec;$k** $k=$(echo $all_data | jq ".[\"$k\"]" -r | base64 --decode)"
+    done
+  done
+
+  # render secrets in envFrom
+  for cm in $(echo $container | yq -P e '.envFrom[] | select(has("configMapRef")) | .configMapRef.name' -); do
+    all_data=$(kng cm $cm -o json | tail -n +2 | jq -r ".data")
+    keys=($(echo "$all_data" | jq "keys[]" -r))
+    for k in $keys; do
+      echo "$k=$(echo $all_data | jq ".[\"$k\"]" -r)"
+    done
+  done
+}
+
+function k-sec-value() {
+  k-sec $1 -o json | tail -n +2 | jq -r ".data[\"$2\"]" | base64 -d
+}
+
+function k-cm-value() {
+  kng cm $1 -o json | tail -n +2 | jq -r ".data[\"$2\"]"
+}
+
 function k-xdep() {
   kn delete deploy $@
 }
@@ -360,7 +421,7 @@ function _k_resource_completion() {
 
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
-complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale
+complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale k-dep-env k-dep-container k-dep-image
 complete -F _k_service_completion k-ser k-dser
 complete -F _k_secret_completion k-sec k-dsec k-sec-mount k-sec-env
 complete -F _k_sec64_completion k-sec64
