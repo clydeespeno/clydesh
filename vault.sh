@@ -117,7 +117,7 @@ function cfvault_access() {
   done
 
   [[ -z $VAULT_ROLE ]] && [[ $VAULT_METHOD == "oidc" ]] && echo "-r, --role is required when method is oidc" && exit 1
-  [[ -z $VAULT_ALIAS ]] && printf "target vault alias is required (-a or --alias). available aliases: \n$(ls $SCRIPT_DIR/aliases)" && exit 1
+  [[ -z $VAULT_ALIAS ]] && printf "target vault alias is required (-a or --alias). available aliases: \n$(ls ${CFVAULT_ALIASES_PATH})" && exit 1
   alias_exists=$(ls ${CFVAULT_ALIASES_PATH} | grep -w "$VAULT_ALIAS")
   if [[ -z $alias_exists ]]; then
     printf "unknown alias $VAULT_ALIAS. Supported:\n$(ls ${CFVAULT_ALIASES_PATH})"
