@@ -119,6 +119,15 @@ function k-dep-container() {
   fi
 }
 
+function k-dep-image() {
+  k-dep-container $1 $2 | yq -P e ".image" -
+}
+
+# get pods of a node
+function k-npod() {
+  k-pod -A --field-selector=spec.nodeName=$1
+}
+
 function k-dep-env() {
   container=$(k-dep-container $1 $2)
   # print envs from env property
@@ -419,6 +428,12 @@ function _k_resource_completion() {
   return 0
 }
 
+function _k_node_completion() {
+  local nodes=`kn get nodes | tail -n +3 | awk '{print $1;}'`
+  COMPREPLY=($(compgen -W "$nodes"))
+  return 0
+}
+
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
 complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale k-dep-env k-dep-container k-dep-image
@@ -429,3 +444,4 @@ complete -F _k_ctx_completion k-ctx
 complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
 complete -F _k_resource_completion knd kng knx kd kg kx kne ke
+complete -F _k_node_completion k-npod
