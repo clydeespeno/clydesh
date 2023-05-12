@@ -78,6 +78,14 @@ function _vault_cf_access() {
 }
 
 function cfvault_wrap() {
+  wrap_token=$(_cfvault_wrap $@)
+  echo "echo wrapped token: $wrap_token"
+  echo "unwrap with:"
+  echo "  vault unwrap ${wrap_token}"
+  echo "or use $(_vault_get_opts_address)/ui/vault/tools/unwrap and put the wrapping token"
+}
+
+function _cfvault_wrap() {
   address="$(_vault_get_opts_address)"
   cf_token="$(_vault_get_opts_cftoken)"
 
@@ -86,10 +94,7 @@ function cfvault_wrap() {
     -H "x-vault-wrap-ttl: 30m" \
     -H "cf-access-token: $cf_token" \
     "${address}/v1/sys/wrapping/wrap" -d "$data")
-  echo "$result" | jq ".wrap_info.token" | xargs -n 1 -I {} bash -c 'echo wrapped token: {}'
-  echo "unwrap with:"
-  echo "  vault unwrap $(echo "$result" | jq -r ".wrap_info.token")"
-  echo "or use ${address}/ui/vault/tools/unwrap and put the wrapping token"
+  echo "$result" | jq -r ".wrap_info.token"
 }
 
 function cfvault_get_wrap_data() {
@@ -137,11 +142,20 @@ function cfvault_access() {
   _vault_login
 }
 
+function cfvault_ui() {
+  token_data=$(cfvault token lookup -format=json | jq ".data + {client_token: .data.id}")
+  [[ -n ${CFVAULT_DEBUG} ]] && echo "wrapping token data: ${token_data}"
+  wrap_token=$(_cfvault_wrap "$token_data")
+  echo "$(_vault_get_opts_address)/ui/vault/auth?with=token&wrapped_token=${wrap_token}"
+}
+
 function cfvault() {
   if [[ "$1" == "wrap" ]]; then
     cfvault_wrap ${@:2}
   elif [[ "$1" == "access" ]]; then
     cfvault_access ${@:2}
+  elif [[ "$1" == "ui" ]]; then
+    cfvault_ui
   else
     vault_args="$(_vault_get_opts_commands $@) -address="$(_vault_get_opts_address)" -header="$(_vault_get_opts_cftoken_header)" $(_vault_get_opts_args $@)"
     if [[ -n $CFVAULT_DEBUG ]]; then
@@ -152,5 +166,16 @@ function cfvault() {
     eval "VAULT_TOKEN=$(_vault_get_opts_token) vault $vault_args"
   fi
 }
+
+# ohmyzsh support
+function cfvault_prompt_info() {
+  info=""
+  [[ $CFVAULT_PROMPT_SHOW_ALIAS != false ]] && info="${info}a=$(_vault_get_opts_alias);"
+  [[ -n $info ]] && echo "<cfv:${info:0:-1}>"
+}
+
+if [[ "$CFVAULT_PROMPT_SHOW" != false && "$RPROMPT" != *'$(cfvault_prompt_info)'* ]]; then
+  RPROMPT='$(cfvault_prompt_info)'"$RPROMPT"
+fi
 
 complete -o nospace -C /opt/homebrew/bin/vault cfvault

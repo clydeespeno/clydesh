@@ -33,7 +33,7 @@ function k-ctx() {
 }
 
 function kn() {
-  echo "kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@"
+  [[ $KUBE_COMMAND_SHOW != false ]] && echo "kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@"
   kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@
 }
 
@@ -433,6 +433,21 @@ function _k_node_completion() {
   COMPREPLY=($(compgen -W "$nodes"))
   return 0
 }
+
+# set to false
+KUBE_PROMPT_SHOW_CTX=${KUBE_PROMPT_SHOW_CTX:-false}
+# ohmyzsh support
+function k_prompt_info() {
+  info=""
+  [[ $KUBE_PROMPT_SHOW_NS != false ]] && info="${info}ns=$KUBE_NAMESPACE;"
+  [[ $KUBE_PROMPT_SHOW_CTX != false ]] && info="${info}ctx=$KUBE_CONTEXT;"
+
+  [[ -n $info ]] && echo "<k:${info:0:-1}>"
+}
+
+if [[ "$KUBE_PROMPT_SHOW" != false && "$RPROMPT" != *'$(k_prompt_info)'* ]]; then
+  RPROMPT='$(k_prompt_info)'"$RPROMPT"
+fi
 
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
