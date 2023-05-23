@@ -434,20 +434,28 @@ function _k_node_completion() {
   return 0
 }
 
+function _kcol() {
+  _prefix="%{$reset_color%}%{$fg[blue]%}"
+  _suffix="%{$reset_color%}"
+  echo "${_prefix}${1}${_suffix}"
+}
+
 # set to false
 KUBE_PROMPT_SHOW_CTX=${KUBE_PROMPT_SHOW_CTX:-false}
+KUBE_PROMPT_SHOW=true
 # ohmyzsh support
 function k_prompt_info() {
   info=""
   [[ $KUBE_PROMPT_SHOW_NS != false ]] && info="${info}ns=$KUBE_NAMESPACE;"
   [[ $KUBE_PROMPT_SHOW_CTX != false ]] && info="${info}ctx=$KUBE_CONTEXT;"
 
-  [[ -n $info ]] && echo "<k:${info:0:-1}>"
+  [[ -n $info ]] && echo "$(_kcol "k8:(")${nc}${info:0:-1}$(_kcol ")")"
 }
 
-if [[ "$KUBE_PROMPT_SHOW" != false && "$RPROMPT" != *'$(k_prompt_info)'* ]]; then
-  RPROMPT='$(k_prompt_info)'"$RPROMPT"
+if [[ "$KUBE_PROMPT_SHOW" != false && "$PROMPT" != *'$(k_prompt_info)'* ]]; then
+  PROMPT="$PROMPT"'$(k_prompt_info) '
 fi
+
 
 complete -F _k_ns_completion k-ns
 complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod

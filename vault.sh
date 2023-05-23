@@ -167,15 +167,32 @@ function cfvault() {
   fi
 }
 
-# ohmyzsh support
-function cfvault_prompt_info() {
-  info=""
-  [[ $CFVAULT_PROMPT_SHOW_ALIAS != false ]] && info="${info}a=$(_vault_get_opts_alias);"
-  [[ -n $info ]] && echo "<cfv:${info:0:-1}>"
+autoload colors; colors;
+export LSCOLORS="Gxfxcxdxbxegedabagacad"
+setopt prompt_subst
+
+function _cfcol() {
+  _prefix="%{$reset_color%}%{$fg[yellow]%}"
+  _suffix="%{$reset_color%}"
+  echo "${_prefix}${1}${_suffix}"
 }
 
-if [[ "$CFVAULT_PROMPT_SHOW" != false && "$RPROMPT" != *'$(cfvault_prompt_info)'* ]]; then
-  RPROMPT='$(cfvault_prompt_info)'"$RPROMPT"
+function _cflink() {
+  alias="$(_vault_get_opts_alias)"
+  address="$(_vault_get_opts_address)"
+  printf '\033]8;;%s\033\\%s\033]8;;\033\\\n' "$address" " $alias "
+}
+
+CFVAULT_PROMPT_SHOW_ALIAS=true
+
+# ohmyzsh support
+function cfvault_prompt_info() {
+  [[ $CFVAULT_PROMPT_SHOW_ALIAS != false ]] && info="${info}$(_cflink);"
+  [[ -n $info ]] && echo "$(_cfcol "cfv:(")${info:0:-1}$(_cfcol ")")"
+}
+
+if [[ "$CFVAULT_PROMPT_SHOW" != false && "$PROMPT" != *'$(cfvault_prompt_info)'* ]]; then
+  PROMPT="$PROMPT"'$(cfvault_prompt_info) '
 fi
 
 complete -o nospace -C /opt/homebrew/bin/vault cfvault
