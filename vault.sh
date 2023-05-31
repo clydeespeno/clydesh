@@ -157,6 +157,7 @@ function cfvault_db() {
 function cfvault_db_astra_classic() {
   _access="read"
   _cqlsh="false"
+  _bundle=""
   while [ $# -gt 0 ] ; do
     case $1 in
       -a | --access) _access="$2"; shift ;;
