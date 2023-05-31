@@ -1,6 +1,7 @@
 _vault_common_commands="read write delete list login status unwrap"
 
 CFVAULT_ALIASES_PATH=${CFVAULT_ALIASES_PATH:-"$HOME/.vault_aliases"}
+CFVAULT_DB_ALIASES_PATH=${CFVAULT_ALIASES_PATH:-"$HOME/.vault_db_aliases"}
 CFVAULT_ACCESS_PATH=${CFVAULT_ACCESS_PATH:-"$HOME/.vault_access"}
 CFVAULT_ALIAS_FILE_PATH=${CFVAULT_ALIAS_FILE_PATH:-"$HOME/.vault_alias"}
 
@@ -142,6 +143,80 @@ function cfvault_access() {
   _vault_login
 }
 
+function cfvault_db() {
+  args=( "${@:2}" )
+  _db_type="$1"
+
+  if [[ "pg postgres" == *"$_db_type"* ]]; then
+    cfvault_db_postgres $args
+  elif [[ "astra-classic cassandra" == *"$_db_type"* ]]; then
+    cfvault_db_astra_classic $args
+  fi
+}
+
+function cfvault_db_astra_classic() {
+  _access="read"
+  while [ $# -gt 0 ] ; do
+    case $1 in
+      -a | --access) _access="$2" ;;
+    esac
+    shift
+  done
+}
+
+function cfvault_db_postgres() {
+  _access="read"
+  _proxy="false"
+  _psql="false"
+  _proxy_port="15432"
+  while [ $# -gt 0 ] ; do
+    case $1 in
+      -a | --access) _access="$2"; shift ;;
+      --proxy) _proxy="true"; ;;
+      --psql) _psql="true"; ;;
+      -p | --port) _proxy_port="$2"; shift ;;
+      *) _db_name="$1" ;;
+    esac
+    shift
+  done
+
+  echo "Creating credentials for postgres ${_db_name} with ${_access} access"
+  _creds=$(cfvault read -format=json postgres/creds/${_db_name}-${_access})
+  echo "These are you credentials:"
+  echo "$_creds" | jq ".data"
+  echo ""
+  echo "Renew this lease by:"
+  echo "cvault lease renew postgres/creds/${_db_name}-${_access}/$(echo "$_creds" | jq -r ".lease_id")"
+  echo ""
+
+  metadata=$(cfvault kv get -format=json platform/database-access/postgres/${_db_name})
+  url=$(echo $metadata | jq -r ".data.data.url")
+  username=$(echo $_creds | jq -r ".data.username")
+  password=$(echo $_creds | jq -r ".data.password")
+  db=$(echo $metadata | jq -r ".data.data.db")
+
+  # create a proxy that runs in the background if --proxy is passed
+  if [[ $_proxy == true ]]; then
+    cloudflared access tcp --hostname "$url" --url localhost:$_proxy_port &
+    proc_pid=$!
+    echo "Running the tcp proxy for $url in the background on port $_proxy_port"
+    echo "To kill the proxy run:"
+    echo "kill -9 $proc_pid"
+
+    # if psql is true, and proxy is running, also run the psql command with the provided credentials
+    if [[ $_psql == true ]]; then
+      psql "postgres://${username}:${password}@localhost:$_proxy_port/${db}"
+    fi
+  # if no proxy is specified, give instructions on how to access the application.
+  else
+    echo "Since --proxy is not supplied, you will need to manually run the proxy to access ${_db_name} locally. Run:"
+    echo "cloudflared access tcp --hostname $url --url localhost:$_proxy_port"
+    echo ""
+    echo "Once the proxy is running, you can also run psql or any other tools to connect to it."
+    echo "psql \"postgres://${username}:${password}@localhost:$_proxy_port/${db}\""
+  fi
+}
+
 function cfvault_ui() {
   token_data=$(cfvault token lookup -format=json | jq ".data + {client_token: .data.id}")
   [[ -n ${CFVAULT_DEBUG} ]] && echo "wrapping token data: ${token_data}"
@@ -156,6 +231,8 @@ function cfvault() {
     cfvault_access ${@:2}
   elif [[ "$1" == "ui" ]]; then
     cfvault_ui
+  elif [[ "$1" == "db" ]]; then
+    cfvault_db ${@:2}
   else
     vault_args="$(_vault_get_opts_commands $@) -address="$(_vault_get_opts_address)" -header="$(_vault_get_opts_cftoken_header)" $(_vault_get_opts_args $@)"
     if [[ -n $CFVAULT_DEBUG ]]; then
@@ -177,13 +254,18 @@ function _cfcol() {
   echo "${_prefix}${1}${_suffix}"
 }
 
+CFVAULT_PROMPT_SHOW_ALIAS=true
+CFVAULT_PROMPT_DISABLE_LINK=true
+
 function _cflink() {
   alias="$(_vault_get_opts_alias)"
-  address="$(_vault_get_opts_address)"
-  printf '\033]8;;%s\033\\%s\033]8;;\033\\\n' "$address" " $alias "
+  if [[ $CFVAULT_PROMPT_DISABLE_LINK != true ]]; then
+    address="$(_vault_get_opts_address)"
+    printf '\033]8;;%s\033\\%s\033]8;;\033\\\n' "$address" " $alias "
+  else
+    echo " $alias "
+  fi
 }
-
-CFVAULT_PROMPT_SHOW_ALIAS=true
 
 # ohmyzsh support
 function cfvault_prompt_info() {
