@@ -156,12 +156,48 @@ function cfvault_db() {
 
 function cfvault_db_astra_classic() {
   _access="read"
+  _cqlsh="false"
   while [ $# -gt 0 ] ; do
     case $1 in
-      -a | --access) _access="$2" ;;
+      -a | --access) _access="$2"; shift ;;
+      --cqlsh) _cqlsh="true"; ;;
+      -b | --bundle) _bundle="$2"; shift ;;
+      *) _db_name="$1" ;;
     esac
     shift
   done
+
+  _bundle=${_bundle:-"${_db_name}-secure-bundle.zip"}
+
+  echo "Creating credentials for astra-classic ${_db_name} with ${_access} access"
+  _creds=$(cfvault read -format=json astra-classic/creds/${_db_name}-${_access})
+  echo "These are you credentials:"
+  echo "$_creds" | jq ".data"
+  echo ""
+  echo "Renew this lease by:"
+  echo "cvault lease renew astra-classic/creds/${_db_name}-${_access}/$(echo "$_creds" | jq -r ".lease_id")"
+  echo ""
+
+  username=$(echo $_creds | jq -r ".data.username")
+  password=$(echo $_creds | jq -r ".data.password")
+
+  if [[ $_cqlsh != false ]]; then
+    if [[ ! -f "$_bundle" ]]; then
+      echo "Getting bundle from vault at platform/database-access/astra-classic/${_db_name}"
+      cfvault kv get -format=json platform/database-access/astra-classic/${_db_name} | jq -r '.data.data["secure-bundle.zip"]' | base64 -d > $_bundle
+      echo "Bundle is written at $_bundle"
+    else
+      echo "Bundle already exists at $_bundle. Not downloading."
+    fi
+
+    cqlsh -b $_bundle -u "${username}" -p "${password}"
+  else
+    echo "To connect to the database, get the bundle first by running: "
+    echo "cfvault kv get -format=json platform/database-access/astra-classic/${_db_name} | jq -r '.data.data[\"secure-bundle.zip\"]' | base64 -d > $_bundle"
+    echo ""
+    echo "Use cqlsh or any tools to connect to it."
+    echo "cqlsh -b $_bundle -u \"${username}\" -p \"${password}\""
+  fi
 }
 
 function cfvault_db_postgres() {
@@ -269,12 +305,14 @@ function _cflink() {
 
 # ohmyzsh support
 function cfvault_prompt_info() {
-  [[ $CFVAULT_PROMPT_SHOW_ALIAS != false ]] && info="${info}$(_cflink);"
-  [[ -n $info ]] && echo "$(_cfcol "cfv:(")${info:0:-1}$(_cfcol ")")"
+  if [[ $CFVAULT_PROMPT_SHOW != false ]]; then
+    [[ $CFVAULT_PROMPT_SHOW_ALIAS != false ]] && info="${info}$(_cflink);"
+    [[ -n $info ]] && echo "$(_cfcol "cfv:(")${info:0:-1}$(_cfcol ")") "
+  fi
 }
 
 if [[ "$CFVAULT_PROMPT_SHOW" != false && "$PROMPT" != *'$(cfvault_prompt_info)'* ]]; then
-  PROMPT="$PROMPT"'$(cfvault_prompt_info) '
+  PROMPT="$PROMPT"'$(cfvault_prompt_info)'
 fi
 
 complete -o nospace -C /opt/homebrew/bin/vault cfvault
