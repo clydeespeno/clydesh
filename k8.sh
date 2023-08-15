@@ -33,7 +33,7 @@ function k-ctx() {
 }
 
 function kn() {
-  [[ $KUBE_COMMAND_SHOW != false ]] && echo "kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@"
+  [[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@"
   kubectl -n $KUBE_NAMESPACE --context $KUBE_CONTEXT $@
 }
 
@@ -66,7 +66,7 @@ function k-xpod() {
 }
 
 function k-pod-reload() {
-  pods=$(k-pod -l "$1" | tail +2 | awk '{print $1;}')
+  pods=$(k-pod -l "$1" --no-headers -o custom-columns=:metadata.name)
   for pod in $(compgen -W "$pods"); do
     echo "deleting pod $pod"
     k-xpod $pod
@@ -111,7 +111,7 @@ function k-dep() {
 
 function k-dep-container() {
   container_name=$2
-  dep=$(kn get deploy $1 -o yaml | tail +2)
+  dep=$(kng deploy $1 -o yaml)
   if [[ -z $container_name ]]; then
     echo $dep | yq -P e ".spec.template.spec.containers[0]" -
   else
@@ -172,11 +172,11 @@ function k-dep-env() {
 }
 
 function k-sec-value() {
-  k-sec $1 -o json | tail -n +2 | jq -r ".data[\"$2\"]" | base64 -d
+  k-sec $1 -o json | jq -r ".data[\"$2\"]" | base64 -d
 }
 
 function k-cm-value() {
-  kng cm $1 -o json | tail -n +2 | jq -r ".data[\"$2\"]"
+  kng cm $1 -o json | jq -r ".data[\"$2\"]"
 }
 
 function k-xdep() {
@@ -184,7 +184,7 @@ function k-xdep() {
 }
 
 function k-dep-apply() {
-  deps=$(k-dep -l "$1" | tail +3 | awk '{print $1;}')
+  deps=$(k-dep -l "$1" --no-headers -o custom-columns=:metadata.name)
 
   for dep in $(compgen -W "$deps"); do
     $2 $dep ${@:3}
@@ -248,7 +248,7 @@ function k-watch-l() {
 }
 
 function k-sec64() {
-  all_data=$(k-sec $1 -o json | tail -n +2 | jq -r ".data")
+  all_data=$(k-sec $1 -o json | jq -r ".data")
   if [ -z "$2" ]; then
     keys=($(echo "$all_data" | jq "keys[]" -r))
     for k in $keys; do
@@ -263,7 +263,7 @@ function k-sec64() {
 }
 
 function k-sec-mount() {
-  all_data=$(k-sec $1 -o json | tail -n +2 | jq -r ".data")
+  all_data=$(k-sec $1 -o json | jq -r ".data")
   dir=${2:-$(pwd)}
   mkdir -p $dir 
   
@@ -286,7 +286,7 @@ function k-dep-restart() {
   kn rollout restart deployment/$1
 
   sleep 2
-  rshash=`k-dep-rs $1`
+  rshash=$(k-dep-rs $1)
 
   echo "new replica set is $rshash"
 }
@@ -344,14 +344,19 @@ function ke() {
   k edit $@
 }
 
+function k-cron-run() {
+  job_name=${2:-"$1-$(date +'%F-%H%M')"}
+  kn create job --from=cronjob/$1 $job_name 
+}
+
 function _k_ns_completion() {
-  local namespaces=`kubectl --context $KUBE_CONTEXT get namespaces | tail -n +2 | awk '{print $1;}'`
+  local namespaces=$(kg ns --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$namespaces"))
   return 0
 }
 
 function _k_pod_completion() {
-  local services=`kn get pods | tail -n +3 | awk '{print $1;}'`
+  local services=$(KUBE_COMMAND_SHOW=false k-pod --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$services"))
   return 0
 }
@@ -363,19 +368,19 @@ function _k_yaml_completion() {
 }
 
 function _k_deploy_completion() {
-  local deploys=`kn get deploy | tail -n +3 | awk '{print $1;}'`
+  local deploys=$(KUBE_COMMAND_SHOW=false kng deploy --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$deploys"))
   return 0
 }
 
 function _k_service_completion() {
-  local servs=`kn get service | tail -n +3 | awk '{print $1;}'`
+  local servs=$(KUBE_COMMAND_SHOW=false kng service --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$servs"))
   return 0
 }
 
 function _k_secret_completion() {
-  local secrets=`kn get secret | tail -n +3 | awk '{print $1;}'`
+  local secrets=$(KUBE_COMMAND_SHOW=false kng secret --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$secrets"))
   return 0
 }
@@ -383,11 +388,11 @@ function _k_secret_completion() {
 function _k_sec64_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
-    reply=$(kn get secret | tail -n +3 | awk '{print $1;}')
+    reply=$(KUBE_COMMAND_SHOW=false kng secret --no-headers -o custom-columns=:metadata.name)
     COMPREPLY=($(compgen -W "$reply"))
   elif [ ${COMP_CWORD} == "2" ]; then
     local secret=${COMP_WORDS[1]}
-    all_data=$(k-sec $secret -o json | jq -r ".data")
+    all_data=$(KUBE_COMMAND_SHOW=false k-sec $secret -o json | jq -r ".data")
     COMPREPLY=($(echo "$all_data" | jq "keys[]" -r))
   fi
   return 0
@@ -395,7 +400,12 @@ function _k_sec64_completion() {
 
 
 function _k_ctx_completion() {
-  local ctxs=`kubectl config view -o json | jq -r '.contexts[].name'`
+  local ctxs=""
+  if [[ -f "$HOME/.kube/config" ]]; then
+    ctxs=$(yq -r '.contexts[].name' "$HOME/.kube/config")
+  else
+    ctxs=$(kubectl config view -o json | jq -r '.contexts[].name')
+  fi
   COMPREPLY=($(compgen -W "$ctxs"))
   return 0
 }
@@ -403,7 +413,7 @@ function _k_ctx_completion() {
 function _k_fwd_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
-    reply=$(kn get pods | tail -n +3 | awk '{print $1;}')
+    reply=$(KUBE_COMMAND_SHOW=false kng pod --no-headers -o custom-columns=:metadata.name)
   elif [ ${COMP_CWORD} == "2" ]; then
     reply=$(cat $KUBE_PORT_ALIAS_FILE | awk '{print $1}')
   fi
@@ -429,8 +439,14 @@ function _k_resource_completion() {
 }
 
 function _k_node_completion() {
-  local nodes=`kn get nodes | tail -n +3 | awk '{print $1;}'`
+  local nodes=$(kg node --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$nodes"))
+  return 0
+}
+
+function _k_cron_completion() {
+  local cron=$(KUBE_COMMAND_SHOW=false kng cronjob --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$cron"))
   return 0
 }
 
@@ -468,3 +484,4 @@ complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
 complete -F _k_resource_completion knd kng knx kd kg kx kne ke
 complete -F _k_node_completion k-npod
+complete -F _k_cron_completion k-cron-run

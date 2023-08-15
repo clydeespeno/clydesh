@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 function aws-assume() {
   aws sts get-caller-identity ${@:2}
   EXIT_CODE=$?
@@ -112,6 +114,43 @@ function aws-kube-config() {
     eval "$_cmd"
   done
   
+}
+
+function aws-ec2-idof() {
+  flags=""
+  dns_name=""
+  while [[ "$#" -gt 0 ]]; do
+    case $1 in
+      --*)
+        flags="$1 $2"
+        shift 2
+        ;;
+      *)
+       dns_name=$1
+       shift
+       ;;
+    esac
+  done
+  aws ec2 describe-instances --filters "Name=network-interface.private-dns-name,Values=$dns_name" --query 'Reservations[].Instances[].InstanceId' --output json ${(z)flags} | jq -r ".[]"
+}
+
+function aws-ssm-dns-name() {
+  flags=""
+  dns_name=""
+  while [[ "$#" -gt 0 ]]; do
+    case $1 in
+      --*)
+        flags="$1 $2"
+        shift 2
+        ;;
+      *)
+       dns_name=$1
+       shift
+       ;;
+    esac
+  done
+  ec2_id=$(aws-ec2-idof ${(z)flags} $dns_name)
+  aws ssm start-session --target $ec2_id ${(z)flags}
 }
 
 function _profile_completion() {

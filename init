@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 export CLYDESH_HOME=${CLYDESHDIR:-$HOME}/.clydesh
 
 autoload -U +X compinit && compinit
@@ -17,4 +19,4 @@ _load_many() {
 
 source "${CLYDESH_HOME}"/bb/init.sh
 
-_load_many utils docker git node k8 ssh terraform eks aws vault
+_load_many utils docker git node k8 ssh terraform eks aws
