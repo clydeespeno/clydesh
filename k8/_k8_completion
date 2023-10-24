@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 
+function _k8_resource_completion() {
+  local _cmd=${COMP_WORDS[0]}
+  resource=$(grep $_cmd < $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping | head -n 1 | awk '{print $1}')
+  if [[ -n $resource ]]; then
+    COMPREPLY=($(compgen -W "$(_k8_cached_get $resource)"))
+  fi
+}
+
+while read -r line; do
+  complete -F _k8_resource_completion $(echo "$line")
+done < $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+
 function _k_ns_completion() {
-  local namespaces=$(kg ns --no-headers -o custom-columns=:metadata.name)
+  local namespaces=$(KUBE_COMMAND_SHOW=false kg ns --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$namespaces"))
   return 0
 }
@@ -81,16 +93,16 @@ function _ks_completion() {
 function _k_resource_completion() {
   local reply=""
   if [ ${COMP_CWORD} == "1" ]; then
-    reply=$(k  api-resources --verbs=list | tail -n +2 | awk '{print $1}')
+    reply=$(KUBE_COMMAND_SHOW=false k api-resources --verbs=list | tail -n +2 | awk '{print $1}')
   elif [ ${COMP_CWORD} == "2" ]; then
-    reply=$(kn get ${COMP_WORDS[$COMP_CWORD-1]} | tail -n +3 | awk '{print $1}')
+    reply=$(KUBE_COMMAND_SHOW=false kn get ${COMP_WORDS[$COMP_CWORD-1]} | tail -n +3 | awk '{print $1}')
   fi
   COMPREPLY=($(compgen -W "$reply"))
   return 0
 }
 
 function _k_node_completion() {
-  local nodes=$(kg node --no-headers -o custom-columns=:metadata.name)
+  local nodes=$(KUBE_COMMAND_SHOW=false kg node --no-headers -o custom-columns=:metadata.name)
   COMPREPLY=($(compgen -W "$nodes"))
   return 0
 }
@@ -107,16 +119,8 @@ function _k_ss_completion() {
   return 0
 }
 
-complete -F _k_ns_completion k-ns
-complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
-complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale k-dep-env k-dep-container k-dep-image
-complete -F _k_service_completion k-ser k-dser
-complete -F _k_secret_completion k-sec k-dsec k-sec-mount k-sec-env
-complete -F _k_sec64_completion k-sec64
 complete -F _k_ctx_completion k-ctx
 complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
 complete -F _k_resource_completion knd kng knx kd kg kx kne ke
 complete -F _k_node_completion k-npod
-complete -F _k_cron_completion k-cron-run
-complete -F _k_ss_completion k-ss-scale k-ss-rescale

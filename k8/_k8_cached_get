@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# default cache is 5 mins
+cache_ttl=${KUBE_COMPLETION_CACHE_TTL:-300}
+invalidate=false
+for i in "$@"; do
+  case $i in
+    --ttl=*)
+      cache_ttl="${i#*=}"
+      shift # past argument=value
+      ;;
+    --invalidate)
+      invalidate=true
+      shift
+      ;;
+    --debug)
+      export K8_DEBUG=true
+      shift
+      ;;
+    *)
+      resource=$i
+      shift # past argument=value
+      ;;
+  esac
+done
+
+cache_file=$KUBE_ARTIFACTS_DIR/cache/"$(_k8_read --target=ctx)_$(_k8_read --target=ns)_$resource"
+
+function invalidate() {
+  if [[ -f $cache_file ]]; then
+    last_modified_sec=$(echo $(($(date +%s) - $(stat -t %s -f %m -- "$cache_file"))))
+    _k8_debug "Invalidate is: $invalidate, and last modified age is $last_modified_sec"
+    if [[ $invalidate == true ]] || [[ $last_modified_sec -gt $cache_ttl ]]; then
+      _k8_debug "Invalidating cache $cache_file"
+      rm $cache_file
+    fi
+  fi
+}
+
+function get() {
+  if [[ ! -f $cache_file ]]; then
+    _k8_debug "Refreshing cache: $cache_file"
+    KUBE_COMMAND_SHOW=false kng $resource --name-only > $cache_file
+  else
+    _k8_debug "Getting result from cache $cache_file"
+  fi
+  cat $cache_file
+}
+
+invalidate
+get
+

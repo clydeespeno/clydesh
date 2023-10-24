@@ -24,8 +24,8 @@ function _load_path() {
     echo "Adding ${CLYDESH_HOME}/$1 to path"
     export PATH="${PATH}:${_script_path}"
     _source_if_exists "${_script_path}/_$1_function"
-    _source_if_exists "${_script_path}/_$1_completion"
     _source_if_exists "${_script_path}/_$1_init"
+    _source_if_exists "${_script_path}/_$1_completion"
   fi
 }
 

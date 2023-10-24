@@ -27,6 +27,28 @@ node node
 EOF
 fi
 
+function _k8_render_func_mapping() {
+  echo $1
+  for alias in ${@:2}; do
+    for prefix in $(echo "k- k-x k-d"); do
+      echo "$prefix$alias"
+    done
+  done
+}
+
+touch $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+mkdir -p $KUBE_ARTIFACTS_DIR/cache
+truncate -s 0 $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+
+while read -r line; do
+  _k8_render_func_mapping $(echo $line) | xargs >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+done < $KUBE_ARTIFACTS_DIR/dyn_render_resources
+
+echo "deploy k-dep-env k-dep-rs" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+echo "namespace k-ns" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+echo "pod k-fwd k-bash k-sh k-ex" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+echo "node k-npod" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+
 if [[ ! -f "$KUBE_ARTIFACTS_DIR/dyn_render_ops" ]]; then
   cat > "$KUBE_ARTIFACTS_DIR/dyn_render_ops" <<EOF
 delete x
