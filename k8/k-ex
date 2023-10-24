@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+kn exec -it $1 -- ${@:2}

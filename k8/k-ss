@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+args=()
+rs=""
+for i in "$@"; do
+  case $i in
+    --rs=*)
+      rs="${i#*=}"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+if [[ -n $rs ]]; then
+  patch=$(cat <<EOF
+{
+  "spec": {
+    "replicas": $rs
+  }
+}
+EOF
+)
+  # shellcheck disable=SC2068
+  for ss in $(kng statefulset ${args[@]} --name-only); do
+    kn patch statefulset $ss -p "$patch"
+  done
+else
+  # shellcheck disable=SC2068
+  kng statefulset ${args[@]}
+fi

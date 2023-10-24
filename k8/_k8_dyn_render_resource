@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+resource=$1
+
+function render_describe() {
+  cat > "$KUBE_DYN_DIR/k-d$1" <<EOF
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+knd $resource \$@
+EOF
+}
+
+function render_get() {
+  cat > "$KUBE_DYN_DIR/k-$1" <<EOF
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+kng $resource \$@
+EOF
+}
+
+function render_delete() {
+  cat > "$KUBE_DYN_DIR/k-x$1" <<EOF
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+knx $resource \$@
+EOF
+}
+
+
+for alias in ${@:2}; do
+  render_describe $alias
+  render_get $alias
+  render_delete $alias
+done

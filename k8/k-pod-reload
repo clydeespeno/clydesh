@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+pods=$(k-pod $@ --no-headers -o custom-columns=:metadata.name)
+for pod in $(compgen -W "$pods"); do
+  echo "deleting pod $pod"
+  k-xpod $pod
+  up=false
+  while [[ $up == "false" ]]; do
+    down=$(KUBE_COMMAND_SHOW=false k-pod $pod --no-headers -o "custom-columns=:metadata.name,:status.containerStatuses[0].ready" | grep "false")
+    [[ -z $down ]] && up=true
+    [[ $up == "false" ]] && echo "Still restarting, retrying in 1 sec (down = $(echo "$down" | awk '{print $1}'))" && sleep 1
+  done
+  echo ""
+done

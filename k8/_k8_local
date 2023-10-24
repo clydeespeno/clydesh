@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+function _join { local IFS="$1"; shift; echo "$*"; }
+
+debug=${K8_DEBUG:-"false"}
+for i in "$@"; do
+  case $i in
+    --debug)
+      debug=true
+      shift # past argument=value
+      ;;
+    --*|-*)
+      echo "Unknown option $i"
+      return 1
+      ;;
+    *)
+      target=$i
+      shift # past argument=value
+      ;;
+  esac
+done
+
+# shellcheck disable=SC2207
+path_tokens=($(pwd))
+while [[ -n "${path_tokens[*]}" ]]; do
+  curr_path=$(_join "/" $path_tokens)
+  if [[ -f "$curr_path/.k8_$target" ]]; then
+    K8_DEBUG=${debug} _k8_debug "loading $target from local $curr_path/.k8_${target}"
+    cat "$curr_path/.k8_$target"
+    exit 0
+  fi
+  if [[ -n $BASH ]]; then
+    unset path_tokens[-1]
+  elif [[ $(basename $SHELL) == "zsh" ]]; then
+    path_tokens[-1]=()
+  fi
+done
+
+

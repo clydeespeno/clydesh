@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+debug=${K8_DEBUG:-"false"}
+
+for i in "$@"; do
+  case $i in
+    --target=*)
+      target="${i#*=}"
+      shift
+      ;;
+    --debug)
+      debug=true
+      shift
+      ;;
+  esac
+done
+
+if [[ $target == "ns" ]]; then
+  var="KUBE_NAMESPACE"
+  target_value="$KUBE_NAMESPACE"
+elif [[ $target == "ctx" ]]; then
+  var="KUBE_CONTEXT"
+  target_value="$KUBE_CONTEXT"
+fi
+
+# reads the value in this order:
+# 1) from shell
+# 2) from local file
+# 3) from global
+
+if [[ -n $target_value ]]; then
+  K8_DEBUG=$debug _k8_debug "loading $target from shell ($var)"
+  echo "$target_value"
+else
+  local_target=$(K8_DEBUG=$debug _k8_local "$target")
+  if [[ -n $local_target ]]; then
+    echo "$local_target"
+  elif [[ -f "$KUBE_ARTIFACTS_DIR/$target" ]]; then
+    K8_DEBUG=$debug _k8_debug "loading $target from global ($KUBE_ARTIFACTS_DIR/$target)"
+    cat "$KUBE_ARTIFACTS_DIR/$target"
+  else
+    K8_DEBUG=$debug _k8_debug "no $target set"
+  fi
+fi

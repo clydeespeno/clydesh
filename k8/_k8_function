@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+
+# contains functions that needs to change the interactive shell's variables
+
+function _k8_read_or_write() {
+  local mode="shell"
+  local value=""
+  local target=""
+  local debug=${K8_DEBUG:-"false"}
+
+  for i in "$@"; do
+    case $i in
+      --global|-g)
+        mode="global"
+        shift # past argument=value
+        ;;
+      --shell|-s)
+        mode="shell"
+        shift # past argument=value
+        ;;
+      --local|-l)
+        mode="local"
+        shift # past argument=value
+        ;;
+      --debug)
+        debug=true
+        shift # past argument=value
+        ;;
+      --target=*)
+        target="${i#*=}"
+        shift
+        ;;
+      --*|-*)
+        echo "Unknown option $i"
+        return 1
+        ;;
+      *)
+        value=$i
+        shift # past argument=value
+        ;;
+    esac
+  done
+
+  # if value is not set, it's a read
+  if [[ -z $value ]]; then
+    K8_DEBUG=${debug} _k8_read \
+      --target=$target \
+      --mode=$mode
+  else
+    if [[ $mode == "shell" ]]; then
+      K8_DEBUG=${debug} _k8_write_shell \
+        --target=$target \
+        $value
+    else
+      K8_DEBUG=${debug} _k8_write \
+        --mode=$mode \
+        --target=$target \
+        $value
+    fi
+  fi
+}
+
+# this can only be done in interactive shell because we can't export from a subscript
+function _k8_write_shell() {
+  local target=""
+  local debug=${K8_DEBUG:-"false"}
+
+  for i in "$@"; do
+    case $i in
+      --target=*)
+        target="${i#*=}"
+        shift
+        ;;
+      --debug)
+        debug=true
+        shift # past argument=value
+        ;;
+      --*|-*)
+        echo "Unknown option $i"
+        return 1
+        ;;
+      *)
+        value=$i
+        shift # past argument=value
+        ;;
+    esac
+  done
+
+  K8_DEBUG=$debug _k8_debug "setting shells $target to $value"
+
+  if [[ $target == "ns" ]]; then
+    export KUBE_NAMESPACE=$value
+  elif [[ $target == "ctx" ]]; then
+    export KUBE_CONTEXT=$value
+  fi
+}
+
+function ks() {
+  local alias=""
+  args=()
+  show=false
+  for i in "$@"; do
+    case $i in
+      --show)
+        show=true
+        shift
+        ;;
+      # ignore all options, just get the alias
+      --*|-*)
+        args+=("$i")
+        shift
+        ;;
+      *)
+        alias=$i
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -f "$KUBE_ARTIFACTS_DIR/aliases/$alias" ]]; then
+    echo "Setting context from alias $alias"
+    ctx=$(awk '{print $1}' < "$KUBE_ARTIFACTS_DIR/aliases/$alias")
+    ns=$(awk '{print $2}' < "$KUBE_ARTIFACTS_DIR/aliases/$alias")
+    # shellcheck disable=SC2068
+    k-ns ${args[@]} "$ns"
+    # shellcheck disable=SC2068
+    k-ctx ${args[@]} "$ctx"
+  fi
+
+  if [[ $show == "true" ]]; then
+    # shellcheck disable=SC2068
+    k-ns ${args[@]}
+    # shellcheck disable=SC2068
+    k-ctx ${args[@]}
+  fi
+}
+
+function k-ns() {
+  # shellcheck disable=SC2068
+  _k8_read_or_write --target=ns $@
+}
+
+function k-ctx() {
+  # shellcheck disable=SC2068
+  _k8_read_or_write --target=ctx $@
+}
+

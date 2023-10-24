@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+args=()
+action=""
+key=""
+dir=""
+decode="false"
+for i in "$@"; do
+  case $i in
+    --val=*|--dval=*)
+      action="value"
+      [[ $i == *"--dval"* ]] && decode=true
+      key="${i#*=}"
+      shift
+      ;;
+    --mount=*|--mount)
+      action="mount"
+      dir="$(pwd)"
+      [[ $i == *"--mount="* ]] && dir="${i#*=}"
+      shift
+      ;;
+    --64)
+      action="64"
+      shift
+      ;;
+    --env)
+      action="env"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# if --val options is set, we extract the data as json
+[[ -n $key ]] && args+=("-j")
+
+if [[ $action == "value" ]]; then
+  # shellcheck disable=SC2046
+  # shellcheck disable=SC2068
+  result=$(kng secret ${args[@]})
+  result=$(echo "$result" | jq -r '.data["'$key'"]')
+  [[ $decode == "true" ]] && result=$(echo "$result" | base64 -d)
+  echo "$result"
+elif [[ $action == "mount" ]]; then
+  # shellcheck disable=SC2068
+  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
+    rendered_dir=$(printf $dir $sec)
+    # shellcheck disable=SC2086
+    mkdir -p $rendered_dir
+    secret_data=$(kng secret $sec -j=".data")
+    for k in $(echo "$secret_data" | jq -r "keys[]"); do
+      echo "mounting secret key $k to $rendered_dir/$k"
+      echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d > "$rendered_dir/$k"
+    done
+  done
+elif [[ $action == "64" ]]; then
+  # shellcheck disable=SC2068
+  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
+    secret_data=$(kng secret $sec -j=".data")
+    echo "Rendering secret $sec in base64"
+    for k in $(echo "$secret_data" | jq -r "keys[]"); do
+      echo "$k:"
+      echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d
+      echo ""
+      echo ""
+    done
+  done
+elif [[ $action == "env" ]]; then
+  # shellcheck disable=SC2068
+  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
+    secret_data=$(kng secret "$sec" -j=".data")
+    for k in $(echo "$secret_data" | jq -r "keys[]"); do
+      echo "$k=$(echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d)"
+    done
+  done
+else
+  # shellcheck disable=SC2068
+  kng secret ${args[@]}
+fi
+

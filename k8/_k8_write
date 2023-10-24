@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+value=""
+for i in "$@"; do
+  case $i in
+    --target=*)
+      target="${i#*=}"
+      shift
+      ;;
+    --mode=*)
+      mode="${i#*=}"
+      shift
+      ;;
+    --*|-*)
+      echo "Unknown option $i"
+      return 1
+      ;;
+    *)
+      value=$i
+      shift # past argument=value
+      ;;
+  esac
+done
+
+if [[ $mode == "local" ]]; then
+  echo "Setting local directory's $target to $value"
+  echo "$value" > "$(pwd)/.k8_$target"
+elif [[ $mode == "global" ]]; then
+  echo "Setting global $target to $value"
+  echo "$value" > "$KUBE_ARTIFACTS_DIR/$target"
+fi

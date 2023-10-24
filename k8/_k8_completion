@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+function _k_ns_completion() {
+  local namespaces=$(kg ns --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$namespaces"))
+  return 0
+}
+
+function _k_pod_completion() {
+  local services=$(KUBE_COMMAND_SHOW=false k-pod --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$services"))
+  return 0
+}
+
+function _k_yaml_completion() {
+  local files=$(ls -p | grep "\.yaml")
+  COMPREPLY=($(compgen -W "$files"))
+  return 0
+}
+
+function _k_deploy_completion() {
+  local deploys=$(KUBE_COMMAND_SHOW=false kng deploy --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$deploys"))
+  return 0
+}
+
+function _k_service_completion() {
+  local servs=$(KUBE_COMMAND_SHOW=false kng service --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$servs"))
+  return 0
+}
+
+function _k_secret_completion() {
+  local secrets=$(KUBE_COMMAND_SHOW=false kng secret --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$secrets"))
+  return 0
+}
+
+function _k_sec64_completion() {
+  local reply=""
+  if [ ${COMP_CWORD} == "1" ]; then
+    reply=$(KUBE_COMMAND_SHOW=false kng secret --no-headers -o custom-columns=:metadata.name)
+    COMPREPLY=($(compgen -W "$reply"))
+  elif [ ${COMP_CWORD} == "2" ]; then
+    local secret=${COMP_WORDS[1]}
+    all_data=$(KUBE_COMMAND_SHOW=false k-sec $secret -o json | jq -r ".data")
+    COMPREPLY=($(echo "$all_data" | jq "keys[]" -r))
+  fi
+  return 0
+}
+
+
+function _k_ctx_completion() {
+  local ctxs=""
+  if [[ -f "$HOME/.kube/config" ]]; then
+    ctxs=$(yq -r '.contexts[].name' "$HOME/.kube/config")
+  else
+    ctxs=$(kubectl config view -o json | jq -r '.contexts[].name')
+  fi
+  COMPREPLY=($(compgen -W "$ctxs"))
+  return 0
+}
+
+function _k_fwd_completion() {
+  local reply=""
+  if [ ${COMP_CWORD} == "1" ]; then
+    reply=$(KUBE_COMMAND_SHOW=false kng pod --no-headers -o custom-columns=:metadata.name)
+  elif [ ${COMP_CWORD} == "2" ]; then
+    reply=$(cat $KUBE_PORT_ALIAS_FILE | awk '{print $1}')
+  fi
+  COMPREPLY=($(compgen -W "$reply"))
+  return 0
+}
+
+function _ks_completion() {
+  reply=$(cat $KUBE_NAMESPACE_CLUSTER_ALIAS_FILE | awk '{print $1;}')
+  COMPREPLY=($(compgen -W "$reply"))
+  return 0
+}
+
+function _k_resource_completion() {
+  local reply=""
+  if [ ${COMP_CWORD} == "1" ]; then
+    reply=$(k  api-resources --verbs=list | tail -n +2 | awk '{print $1}')
+  elif [ ${COMP_CWORD} == "2" ]; then
+    reply=$(kn get ${COMP_WORDS[$COMP_CWORD-1]} | tail -n +3 | awk '{print $1}')
+  fi
+  COMPREPLY=($(compgen -W "$reply"))
+  return 0
+}
+
+function _k_node_completion() {
+  local nodes=$(kg node --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$nodes"))
+  return 0
+}
+
+function _k_cron_completion() {
+  local cron=$(KUBE_COMMAND_SHOW=false kng cronjob --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$cron"))
+  return 0
+}
+
+function _k_ss_completion() {
+  local ss=$(KUBE_COMMAND_SHOW=false kng statefulset --no-headers -o custom-columns=:metadata.name)
+  COMPREPLY=($(compgen -W "$ss"))
+  return 0
+}
+
+complete -F _k_ns_completion k-ns
+complete -F _k_pod_completion k-bash k-sh k-ex k-log k-pod k-dpod k-xpod
+complete -F _k_deploy_completion k-dep k-ddep k-xdep k-scale-dep k-xdep-scale k-dep-rs k-dep-restart k-dep-rescale k-dep-env k-dep-container k-dep-image
+complete -F _k_service_completion k-ser k-dser
+complete -F _k_secret_completion k-sec k-dsec k-sec-mount k-sec-env
+complete -F _k_sec64_completion k-sec64
+complete -F _k_ctx_completion k-ctx
+complete -F _k_fwd_completion k-fwd
+complete -F _ks_completion ks
+complete -F _k_resource_completion knd kng knx kd kg kx kne ke
+complete -F _k_node_completion k-npod
+complete -F _k_cron_completion k-cron-run
+complete -F _k_ss_completion k-ss-scale k-ss-rescale

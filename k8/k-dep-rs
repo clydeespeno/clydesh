@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+args=()
+# use the first container if -c is not set
+replicas=""
+action=""
+for i in "$@"; do
+  case $i in
+    --rs=*)
+      replicas="${i#*=}"
+      action="rs"
+      shift
+      ;;
+    --rm)
+      replicas=0
+      action="remove"
+      shift
+      ;;
+    --rescale)
+      action="rescale"
+      shift
+      ;;
+    --restart)
+      action="restart"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+if [[ -z $action ]]; then
+  echo "No options to set replicas found."
+  echo "Pass either --rs=<rs> or --rm or --rescale"
+fi
+
+# shellcheck disable=SC2068
+while read -r line; do
+  original_rs=$(echo "$line" | awk '{print $2}')
+  deploy=$(echo "$line" | awk '{print $1}')
+  if [[ $action == "rescale" ]]; then
+    echo "Rescaling deployment $deploy."
+    kn scale deployment/"$deploy" --replicas=0
+    kn scale deployment/"$deploy" --replicas="$original_rs"
+  elif [[ $action == "restart" ]]; then
+    echo "Restarting deployment $deploy."
+    kn rollout restart deployment/"$deploy"
+  else
+    echo "Rescaling deployment $deploy from $original_rs -> $replicas"
+    kn scale deployment/"$deploy" --replicas=$replicas
+    if [[ $action == "remove" ]]; then
+      echo "deployment $deploy is scaled to $replicas. Press ENTER to delete deployment"
+      read
+      k-xdep "$deploy"
+    fi
+  fi
+done < <(kng deploy ${args[@]} --no-headers -o custom-columns=:metadata.name,:.spec.replicas)
+

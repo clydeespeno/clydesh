@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+# initializes k8s scripts when the shell is opened the first time
+export KUBE_SCRIPTS_DIR="$CLYDESH_HOME/k8"
+export KUBE_ARTIFACTS_DIR="$CLYDESH_HOME/.k8"
+export KUBE_DYN_DIR="$CLYDESH_HOME/.k8/dyn"
+
+export PATH="$PATH:$KUBE_DYN_DIR"
+
+mkdir -p "$KUBE_ARTIFACTS_DIR"
+mkdir -p "$KUBE_DYN_DIR"
+
+# create a default render set
+if [[ ! -f "$KUBE_ARTIFACTS_DIR/dyn_render_resources" ]]; then
+  cat > "$KUBE_ARTIFACTS_DIR/dyn_render_resources" <<EOF
+deploy dep
+service ser
+pod pod
+cronjob cron
+job job
+ds ds
+statefulset ss
+replicaset rs
+cm cm
+secret sec
+node node
+EOF
+fi
+
+if [[ ! -f "$KUBE_ARTIFACTS_DIR/dyn_render_ops" ]]; then
+  cat > "$KUBE_ARTIFACTS_DIR/dyn_render_ops" <<EOF
+delete x
+edit e
+logs l log
+describe d
+EOF
+fi
+
+function _k8_dyn_render_resources_all() {
+  local dyn_line
+  while read -r dyn_line; do
+    dyn_array=($(echo $dyn_line))
+    _k8_dyn_render_resource ${dyn_array[@]}
+  done < "$KUBE_ARTIFACTS_DIR/dyn_render_resources"
+}
+
+function _k8_dyn_render_ops_all() {
+  local dyn_line
+  while read -r dyn_line; do
+    dyn_array=($(echo $dyn_line))
+    _k8_dyn_render_ops ${dyn_array[@]}
+  done < "$KUBE_ARTIFACTS_DIR/dyn_render_ops"
+}
+
+_k8_dyn_render_resources_all
+_k8_dyn_render_ops_all
+
+chmod +x $KUBE_DYN_DIR/*
+
+function _k8_col() {
+  _prefix="%{$reset_color%}%{$fg[blue]%}"
+  _suffix="%{$reset_color%}"
+  echo "${_prefix}${1}${_suffix}"
+}
+
+# set to false
+KUBE_PROMPT_SHOW_CTX=${KUBE_PROMPT_SHOW_CTX:-false}
+KUBE_PROMPT_SHOW=true
+# ohmyzsh support
+function _k8_prompt_info() {
+  info=""
+  [[ $KUBE_PROMPT_SHOW_NS != false ]] && info="${info}ns=$(k-ns);"
+  [[ $KUBE_PROMPT_SHOW_CTX != false ]] && info="${info}ctx=$(k-ctx);"
+
+  [[ -n $info ]] && echo "$(_k8_col "k8:(")${nc}${info:0:-1}$(_k8_col ")")"
+}
+
+if [[ "$KUBE_PROMPT_SHOW" != false && "$PROMPT" != *'$(_k8_prompt_info)'* ]]; then
+  PROMPT="$PROMPT"'$(_k8_prompt_info) '
+fi
+

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+function _parseport() {
+  if [[ ! -f "${KUBE_ARTIFACTS_DIR}/ports/$1" ]]; then
+    [[ "$1" == *":"* ]] && echo "$1" || echo "$1:$1"
+  else
+    cat "${KUBE_ARTIFACTS_DIR}/ports/$1"
+  fi
+}
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+port=$(_parseport $2)
+kn port-forward $1 "$port"

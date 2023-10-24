@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+args=()
+neat=false
+query_type=""
+for i in "$@"; do
+  case $i in
+    --neat)
+      neat=true
+      shift
+      ;;
+    -j|-jn|-j=*|-jn=*)
+      args+=("-o" "json")
+      query_type="jq"
+      [[ "$i" == *"="* ]] && query="${i#*=}"
+      [[ $i == "jn" ]] && neat=true
+      shift
+      ;;
+    -y|-yn|-y=*|-yn=*)
+      args+=("-o" "yaml")
+      query_type="yq"
+      [[ "$i" == *"="* ]] && query="${i#*=}"
+      [[ $i == "yn" ]] && neat=true
+      shift
+      ;;
+    --name-only)
+      args+=(--no-headers -o custom-columns=:metadata.name)
+      shift
+      ;;
+    -q=*)
+      query="${i#*=}"
+      shift;
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# shellcheck disable=SC2068
+result=$(k get ${args[@]})
+
+[[ $neat == "true" ]] && result=$(echo "$result" | k-neat)
+
+if [[ -n "$query" ]] && [[ -n "$query_type" ]]; then
+  if [[ "$query_type" == "jq" ]]; then
+    result=$(echo "$result" | jq "$query")
+  elif [[ "$query_type" == "yq" ]]; then
+    result=$(echo "$result" | yq "$query")
+  fi
+fi
+
+echo "$result"
+

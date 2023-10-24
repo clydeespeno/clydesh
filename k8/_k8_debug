@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+if [[ $K8_DEBUG == "true" ]]; then
+  # shellcheck disable=SC2145
+  >&2 echo "DEBUG: $@"
+fi

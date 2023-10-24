@@ -1,9 +1,41 @@
 #!/usr/bin/env bash
 
-export CLYDESH_HOME=${CLYDESHDIR:-$HOME}/.clydesh
+pushd . > /dev/null || return
+_path="${BASH_SOURCE[0]:-$0}"
+while [ -h "$_path" ]; do
+  cd "$( dirname -- "$_path"; )"
+  _path="$( readlink -f -- "$_path"; )"
+done
+cd "$( dirname -- "$_path"; )" > '/dev/null'
+_path="$( pwd; )"
+popd > /dev/null 2> /dev/null || return;
+
+export CLYDESH_HOME=${CLYDESH_HOME:-$_path}
+
+echo "Loading clydesh from $CLYDESH_HOME"
 
 autoload -U +X compinit && compinit
 autoload -U +X bashcompinit && bashcompinit
+
+function _load_path() {
+  local _script_path
+  _script_path=${CLYDESH_HOME}/$1
+  if [[ -d "$_script_path" ]]; then
+    echo "Adding ${CLYDESH_HOME}/$1 to path"
+    export PATH="${PATH}:${_script_path}"
+    _source_if_exists "${_script_path}/_$1_function"
+    _source_if_exists "${_script_path}/_$1_completion"
+    _source_if_exists "${_script_path}/_$1_init"
+  fi
+}
+
+function _source_if_exists() {
+  if [[ -f $1 ]]; then
+    source "$1"
+  fi
+}
+
+_load_path k8
 
 _load_script() {
   if [[ -s "${CLYDESH_HOME}/${1}.sh" ]]; then
@@ -17,6 +49,8 @@ _load_many() {
   done
 }
 
-source "${CLYDESH_HOME}"/bb/init.sh
+source "${CLYDESH_HOME}/bb/init.sh"
 
-_load_many utils docker git node k8 ssh terraform eks aws
+_load_many utils docker git node ssh terraform eks aws
+
+# adds directory to path, and also sources the init if it exists

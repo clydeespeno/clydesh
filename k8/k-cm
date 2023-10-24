@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+args=()
+key=""
+for i in "$@"; do
+  case $i in
+    --val=*)
+      [[ $i == *"--dval"* ]] && decode=true
+      key="${i#*=}"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# if --val options is set, we extract the data as json
+[[ -n $key ]] && args+=("-j")
+
+# shellcheck disable=SC2046
+# shellcheck disable=SC2068
+result=$(kng cm ${args[@]})
+
+if [[ -n $key ]]; then
+  result=$(echo "$result" | jq -r '.data["'$key'"]')
+fi
+
+echo "$result"

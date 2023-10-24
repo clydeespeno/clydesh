@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+args=()
+job_name=""
+for i in "$@"; do
+  case $i in
+    --run=*|--run)
+      job_name="%s-$(date +'%F-%H%M')"
+      [[ $i == *"--run="* ]] && job_name="${i#*=}"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+if [[ -n $job_name ]]; then
+  # shellcheck disable=SC2068
+  for cronjob in $(kng cronjob ${args[@]} --no-headers -o custom-columns=:metadata.name); do
+    rendered_job_name=$(printf $job_name $cronjob)
+    kn create job --from="cronjob/$cronjob" "$rendered_job_name"
+  done
+else
+  # shellcheck disable=SC2068
+  kng cronjob ${args[@]}
+fi

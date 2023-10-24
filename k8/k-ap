@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+select_args=()
+has_command=false
+for i in "$@"; do
+  case $i in
+    --)
+      has_command=true
+      shift
+      break
+      ;;
+    *)
+      select_args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+apply_cm=$1
+apply_args=("${@:2}")
+
+([[ $has_command == "false" ]] || [[ -z $apply_cm ]]) && { echo "Command not set. Pass a command after --"; exit 1; }
+
+# shellcheck disable=SC2068
+result=$(kng ${select_args[@]} --no-headers -o custom-columns=:metadata.name)
+
+for r in $result; do
+  # shellcheck disable=SC2068
+  $apply_cm ${apply_args[@]} "$r"
+done

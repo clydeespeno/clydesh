@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+args=()
+# use the first container if -c is not set
+c="0"
+no_info="false"
+for i in "$@"; do
+  case $i in
+    -c=*)
+      c="${i#*=}"
+      shift
+      ;;
+    --no-info)
+      no_info="true"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# shellcheck disable=SC2068
+result=$(k-dep ${args[@]} -j=".spec.template.spec")
+
+case $c in
+  ''|*[!0-9]*)  container=$(echo "$result" | jq ".containers[] | select(.name == \"$c\")") ;;
+  *) container=$(echo "$result" | jq ".containers[$c]") ;;
+esac
+
+export KUBE_COMMAND_SHOW="false"
+# print envs from env property
+for env in $(echo "$container" | jq -r ".env[].name"); do
+  env_map=$(echo "$container" | jq ".env[] | select(.name == \"$env\")")
+  # render from .value
+  if [[ $(echo "$env_map" | jq ".value") != "null" ]]; then
+    echo "$env=$(echo "$env_map" | jq ".value")"
+  # render environment from the .valueFrom field
+  elif [[ $(echo "$env_map" | jq -r ".valueFrom") != "null" ]]; then
+    value_from=$(echo "$env_map" | jq -r ".valueFrom")
+    info=""
+    # renders environment from secrets
+    if [[ $(echo "$value_from" | jq -r ".secretKeyRef") != "null" ]]; then
+      sec_name=$(echo "$value_from" | jq -r ".secretKeyRef.name")
+      sec_key=$(echo "$value_from" | jq -r ".secretKeyRef.key")
+      [[ $no_info == "false" ]] && info="**secret-from:$sec_name;$sec_key** "
+      echo "${info}${env}=\"$(k-sec "$sec_name" --dval="$sec_key")\""
+
+    # renders environment from config-map
+    elif [[ $(echo "$value_from" | jq ".configMapKeyRef") != "null" ]]; then
+      cm_name=$(echo "$value_from" | jq ".configMapKeyRef.name")
+      cm_key=$(echo "$value_from" | jq ".configMapKeyRef.key")
+      echo "$env=\"$(k-cm "$cm_name" --val="$cm_key")\""
+    fi
+  fi
+done
+
+# render secrets in envFrom
+for sec in $(echo "$container" | jq -r '.envFrom[] | select(has("secretRef")) | .secretRef.name'); do
+  all_data=$(k-sec "$sec" -j=".data")
+  keys=($(echo "$all_data" | jq "keys[]" -r))
+  for k in $keys; do
+    info=""
+    [[ $no_info == "false" ]] && info="**secret-from:$sec;$k** "
+    echo "${info}${k}=\"$(echo "$all_data" | jq -r ".[\"$k\"]" | base64 -d)\""
+  done
+done
+
+# render configMap in envFrom
+for cm in $(echo "$container" | jq -r '.envFrom[] | select(has("configMapRef")) | .configMapRef.name'); do
+  all_data=$(k-cm "$cm" -j=".data")
+  keys=($(echo "$all_data" | jq -r "keys[]"))
+  for k in $keys; do
+    echo "$k=\"$(echo $all_data | jq -r ".[\"$k\"]")\""
+  done
+done

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+debug=${K8_DEBUG:-"false"}
+target=""
+for i in "$@"; do
+  case $i in
+    --debug)
+      debug=true
+      shift # past argument=value
+      ;;
+    --*|-*)
+      echo "Unknown option $i"
+      return 1
+      ;;
+    *)
+      target=$i
+      shift # past argument=value
+      ;;
+  esac
+done
+
+if [[ -z $target ]]; then
+  echo "target not specified. Pass ctx or ns"
+fi
+
+case $target in
+  ctx)
+    # shellcheck disable=SC2119
+    # shellcheck disable=SC2155
+    ctx=$(K8_DEBUG=$debug _k8_read --target=ctx)
+    [[ -n $ctx ]] && echo "--context $ctx"
+    ;;
+  ns)
+    # shellcheck disable=SC2119
+    ns=$(K8_DEBUG=$debug _k8_read --target=ns)
+    echo "--namespace ${ns:-default}"
+    ;;
+esac
