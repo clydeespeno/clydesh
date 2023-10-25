@@ -2,12 +2,12 @@
 
 # default cache is 5 mins
 cache_ttl=${KUBE_COMPLETION_CACHE_TTL:-300}
-invalidate=false
+invalidate=${KUBE_COMPLETION_CACHE_INVALIDATE:-false}
 for i in "$@"; do
   case $i in
     --ttl=*)
       cache_ttl="${i#*=}"
-      shift # past argument=value
+      shift
       ;;
     --invalidate)
       invalidate=true
@@ -19,12 +19,16 @@ for i in "$@"; do
       ;;
     *)
       resource=$i
-      shift # past argument=value
+      shift
       ;;
   esac
 done
 
-cache_file=$KUBE_ARTIFACTS_DIR/cache/"$(_k8_read --target=ctx)_$(_k8_read --target=ns)_$resource"
+if [[ $resource == "api-resources" ]]; then
+  cache_file=$KUBE_ARTIFACTS_DIR/cache/"$(_k8_read --target=ctx)_$resource"
+else
+  cache_file=$KUBE_ARTIFACTS_DIR/cache/"$(_k8_read --target=ctx)_$(_k8_read --target=ns)_$resource"
+fi
 
 function invalidate() {
   if [[ -f $cache_file ]]; then
@@ -37,10 +41,24 @@ function invalidate() {
   fi
 }
 
+function get_resources() {
+  while read -r line; do
+    contents=($(echo $line))
+    echo "$line" | awk '{print $1}'
+    if [[ ${#contents[@]} -eq "5" ]]; then
+      echo "$line" | awk '{print $2}' | tr ',' '\n'
+    fi
+  done < <(KUBE_COMMAND_SHOW=false k api-resources --verbs=list --no-headers)
+}
+
 function get() {
   if [[ ! -f $cache_file ]]; then
     _k8_debug "Refreshing cache: $cache_file"
-    KUBE_COMMAND_SHOW=false kng $resource --name-only > $cache_file
+    if [[ $resource == "api-resources" ]]; then
+      get_resources > $cache_file
+    else
+      KUBE_COMMAND_SHOW=false kng $resource --name-only > $cache_file
+    fi
   else
     _k8_debug "Getting result from cache $cache_file"
   fi

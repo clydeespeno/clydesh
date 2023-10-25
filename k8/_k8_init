@@ -46,7 +46,7 @@ done < $KUBE_ARTIFACTS_DIR/dyn_render_resources
 
 echo "deploy k-dep-env k-dep-rs" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
 echo "namespace k-ns" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
-echo "pod k-fwd k-bash k-sh k-ex" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
+echo "pod k-fwd k-bash k-sh k-ex klog knlog kl knl" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
 echo "node k-npod" >> $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
 
 if [[ ! -f "$KUBE_ARTIFACTS_DIR/dyn_render_ops" ]]; then

@@ -34,6 +34,7 @@ done
 if [[ -z $action ]]; then
   echo "No options to set replicas found."
   echo "Pass either --rs=<rs> or --rm or --rescale"
+  exit 1
 fi
 
 # shellcheck disable=SC2068
