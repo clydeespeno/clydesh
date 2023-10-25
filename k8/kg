@@ -13,14 +13,14 @@ for i in "$@"; do
       args+=("-o" "json")
       query_type="jq"
       [[ "$i" == *"="* ]] && query="${i#*=}"
-      [[ $i == "jn" ]] && neat=true
+      [[ $i == *"-jn"* ]] && neat=true
       shift
       ;;
     -y|-yn|-y=*|-yn=*)
       args+=("-o" "yaml")
       query_type="yq"
       [[ "$i" == *"="* ]] && query="${i#*=}"
-      [[ $i == "yn" ]] && neat=true
+      [[ $i == *"-yn"* ]] && neat=true
       shift
       ;;
     --name-only)
