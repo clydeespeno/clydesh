@@ -36,6 +36,9 @@ function _k8_render_func_mapping() {
   done
 }
 
+# location of templates when doing k-run
+mkdir -p $KUBE_ARTIFACTS_DIR/template
+
 touch $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping
 mkdir -p $KUBE_ARTIFACTS_DIR/cache
 truncate -s 0 $KUBE_ARTIFACTS_DIR/dyn_render_func_mapping

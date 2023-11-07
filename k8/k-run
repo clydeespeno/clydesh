@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+# use the first container if -c is not set
+file=""
+template=""
+substitute="false"
+_env_vars=""
+image=""
+args=()
+
+for i in "$@"; do
+  case $i in
+    --i=*|--image=*)
+      image="${i#*=}"
+      shift;;
+    -)
+      file="-"
+      shift;;
+    -f=*)
+      file="${i#*=}"
+      shift;;
+    -D*)
+      substitute=true
+      # get all string after -D
+      _arg="${i#-D*}"
+      # var name is the string before =, with _replace_ prefix
+      _var="_replace_${_arg%%=*}"
+      # value is the string after =
+      _val="${_arg#*=}"
+      # export the variable, so envsubst can use it
+      export $_var="$_val"
+      _env_vars="\$${_var} $_env_vars"
+      shift;;
+    --subst)
+      substitute=true
+      shift;;
+    --template=*)
+      file="$KUBE_ARTIFACTS_DIR/template/${i#*=}.template"
+      shift;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+overrides=""
+
+if [[ $file == "-" ]] || [[ -f $file ]]; then
+  overrides=$(cat $file)
+  if [[ $substitute == "true" ]]; then
+    overrides=$(envsubst "$_env_vars" <<< "$overrides")
+  fi
+  overrides=$(echo "$overrides" | jq -c '.')
+  # try to get the image from the template from the overrides if it doesn't exist
+  if [[ -z $image ]]; then
+    image=$(echo "$overrides" | jq -r '.spec.containers[0].image')
+  fi
+fi
+
+if [[ -z $image ]]; then
+  echo "Image is not set. Either ensure that you have an image in overrides or supply it via --i or --image"
+  exit 1
+fi
+
+# shellcheck disable=SC2145
+[[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides='$overrides' -i --tty --rm --image=$image ${args[@]}"
+
+# shellcheck disable=SC2046
+kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty --rm --image=$image ${args[@]}

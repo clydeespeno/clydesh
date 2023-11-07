@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# default cache is 5 mins
+ctx=$(_k8_read --target=ctx)
+ns=$(_k8_read --target=ns)
+all_ns=false
+format=""
+for i in "$@"; do
+  case $i in
+    --ctx=*)
+      ctx="${i#*=}"
+      shift
+      ;;
+    --ns=*)
+      ns="${i#*=}"
+      shift
+      ;;
+    --all)
+      all_ns=true
+      shift
+      ;;
+    --format=*)
+      format="${i#*=}"
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ -z $format ]]; then
+  >&2 echo "Please specify a format. ex: --format=\"%s-sg\". %s will be replaced with the namespace."
+  exit 1
+fi
+
+function get_ns() {
+  if [[ $all_ns == true ]]; then
+    kg ns --name-only
+  else
+    echo $ns
+  fi
+}
+
+for ns in $(get_ns); do
+  alias="$(printf "$format" $ns)"
+  echo "Creating alias for $ctx $ns -> $alias"
+  alias_file="$KUBE_ARTIFACTS_DIR/aliases/$alias"
+  echo "$ctx $ns" > $alias_file
+done
