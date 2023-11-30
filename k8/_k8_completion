@@ -79,5 +79,5 @@ function _k_ss_completion() {
 complete -F _k_ctx_completion k-ctx
 complete -F _k_fwd_completion k-fwd
 complete -F _ks_completion ks
-complete -F _k_resource_completion knd kd kne ke knx kx
+complete -F _k_resource_completion knd kd kne ke knx kx kng kg
 complete -F _k_node_completion k-npod

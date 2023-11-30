@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+function _join { local IFS="$1"; shift; echo "$*"; }
+args=()
+yq_filters=()
+
+for i in "$@"; do
+  case $i in
+    --kind=*)
+      yq_filters+=("select(.kind == \"${i#*=}\")")
+      shift;;
+    --name=*)
+      yq_filters+=("select(.metadata.name == \"${i#*=}\")")
+      shift;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# shellcheck disable=SC2068
+res=$(k kustomize ${args[@]})
+if [[ ${#yq_filters[@]} -eq 0 ]]; then
+  echo "$res" | yq
+else
+  # shellcheck disable=SC2068
+  echo "$res" | yq "$(_join " | " ${yq_filters[@]})"
+fi
+
