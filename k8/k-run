@@ -9,11 +9,19 @@ _env_vars=""
 image=""
 args=()
 dry="false"
+node=""
+pod_node=""
 
 for i in "$@"; do
   case $i in
     --i=*|--image=*)
       image="${i#*=}"
+      shift;;
+    --node=*)
+      node="${i#*=}"
+      shift;;
+    --pod-node=*)
+      pod_node="${i#*=}"
       shift;;
     -)
       file="-"
@@ -76,6 +84,16 @@ if [[ $file == "-" ]] || [[ -f $file ]]; then
     image=$(echo "$overrides" | jq -r '.spec.containers[0].image')
   fi
 fi
+
+if [[ -n $pod_node ]]; then
+  node=$(k-pod --no-headers -o custom-columns=:spec.nodeName $pod_node)
+fi
+
+if [[ -n $node ]]; then
+  [[ -z $overrides ]] && overrides="{}"
+  overrides=$(echo "$overrides" | jq --arg node $node '.spec.nodeName = $node')
+fi
+
 
 if [[ -z $image ]]; then
   echo "Image is not set. Either ensure that you have an image in overrides or supply it via --i or --image"
