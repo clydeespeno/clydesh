@@ -4,4 +4,5 @@
 
 # artifacts created by k8 scripts
 .k8/
+.g8/
 k8/dyn

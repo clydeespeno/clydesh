@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+#!/usr/bin/env bash
+
+# use the first container if -c is not set
+template=""
+args=()
+prop_files=()
+
+while [ $# -gt 0 ] ; do
+  case $1 in
+    -f|--force|--version|--help) args+=("$1"); ;;
+    -p|--props) prop_files+=( "$2" ); shift; ;;
+    --*=*) args+=("$1"); ;;
+    -*) args+=("$1" "$2"); shift ;;
+    *) template="$1";;
+  esac
+  shift
+done
+
+if [[ -d "$template" ]]; then
+  args+=("file://$template")
+else
+  args+=("$template")
+fi
+
+resolve_props() {
+  local file="$1"
+  locations=(
+    "$file"
+    "$file.properties"
+    "$G8_ARTIFACTS_DIR/template/$file"
+    "$G8_ARTIFACTS_DIR/template/$file.properties"
+  )
+  # shellcheck disable=SC2068
+  for loc in ${locations[@]}; do
+    if [[ -f $loc ]]; then
+      cat $loc
+      return 0
+    fi
+  done
+}
+
+# shellcheck disable=SC2068
+for p in ${prop_files[@]}; do
+  for prop in $(resolve_props $p); do
+    args+=("--$prop")
+  done
+done
+
+# shellcheck disable=SC2145
+[[ $G8_COMMAND_SHOW != false ]] && >&2 echo "g8 ${args[@]}"
+# shellcheck disable=SC2068
+g8 ${args[@]}

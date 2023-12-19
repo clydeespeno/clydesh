@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# initializes g8s scripts when the shell is opened the first time
+export G8_SCRIPTS_DIR="$CLYDESH_HOME/g8"
+export G8_ARTIFACTS_DIR="$CLYDESH_HOME/.g8"
+export G8_DYN_DIR="$CLYDESH_HOME/.g8/dyn"
+
+export PATH="$PATH:$G8_DYN_DIR"
+
+mkdir -p "$G8_ARTIFACTS_DIR"
+mkdir -p "$G8_DYN_DIR"
+
+# location of templates when doing g8w --props
+mkdir -p $G8_ARTIFACTS_DIR/template
