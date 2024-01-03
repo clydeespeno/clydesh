@@ -37,6 +37,7 @@ function _source_if_exists() {
 
 _load_path k8
 _load_path g8
+_load_path curl
 
 _load_script() {
   if [[ -s "${CLYDESH_HOME}/${1}.sh" ]]; then

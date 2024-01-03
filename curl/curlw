@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+args=()
+
+while [ $# -gt 0 ] ; do
+  case $1 in
+    --only-headers) args+=("-sS" "-D" "-" "-o" "/dev/null") ;;
+    *) args+=("$1") ;;
+  esac
+  shift
+done
+
+# shellcheck disable=SC2145
+[[ $CURL_COMMAND_SHOW != false ]] && >&2 echo "curl ${args[@]}"
+
+# shellcheck disable=SC2068
+curl ${args[@]}

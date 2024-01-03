@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+ssm_connect="false"
+ssm_flags=""
+pod=""
+args=()
+
+for i in "$@"; do
+  case $i in
+    # ssm connect to a pod's node
+    # if multiple node matches are found, we execute on the first node
+    --ssm=*|--ssm)
+      ssm_connect="true"
+      [[ $i == *"--ssm="* ]] && ssm_flags="${i#*=}"
+      shift
+      ;;
+    # match the node
+    --pod=*)
+      pod="${i#*=}"
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+nodes=""
+
+if [[ -n $pod  ]]; then
+  nodes=$(k-pod --no-headers -o custom-columns=:metadata.name,:spec.nodeName | grep -E "^$pod" | awk '{print $2}')
+fi
+
+if [[ $ssm_connect == "true" ]]; then
+  node_name=$(echo "$nodes" | head -n1)
+  instance_id=$(aws ec2 describe-instances --filters "Name=private-dns-name,Values=${node_name}" --query "Reservations[].Instances[].InstanceId" --output json | jq -r ".[]")
+  echo "Initiating SSM session to instance ${instance_id} <$node_name>"
+  aws ssm start-session --target "$instance_id"
+else
+  # shellcheck disable=SC2068
+  result=$(kg nodes ${args[@]})
+  # shellcheck disable=SC2199
+  if [[ "${args[@]}" != *"--no-headers"* ]]; then
+    echo "$result" | head -n1
+    result=$(echo "$result" | tail -n +2)
+  fi
+
+  if [[ -n $nodes ]]; then
+    for n in $(echo "$nodes"); do
+      echo "$result" | grep "$n"
+    done
+  else
+    echo "$result"
+  fi
+fi

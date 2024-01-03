@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# initializes CURLs scripts when the shell is opened the first time
+export CURL_SCRIPTS_DIR="$CLYDESH_HOME/CURL"
+export CURL_ARTIFACTS_DIR="$CLYDESH_HOME/.curl"
+export CURL_DYN_DIR="$CLYDESH_HOME/.curl/dyn"
+
+export PATH="$PATH:$CURL_DYN_DIR"
+
+mkdir -p "$CURL_ARTIFACTS_DIR"
+mkdir -p "$CURL_DYN_DIR"
+
+# location of templates when doing curlw --props
+mkdir -p $CURL_ARTIFACTS_DIR/template
