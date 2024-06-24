@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+args=()
+mode=ignore
+backend_flag=false
+workdir=$(pwd)
+for i in "$@"; do
+  case $i in
+    -chdir=*)
+      workdir="${i#*=}"
+      args+=("$i")
+      shift
+      ;;
+    -be=*|-backend=*)
+      mode=${i#*=}
+      if [[ $mode == "ignore" ]]; then
+        backend_flag=false
+      else
+        backend_flag=mode
+      fi
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+# when terraform/tofu detects a previously initialized backend
+# even when -backend=false is specified, the backend will be consulted first
+# this is undesirable when we want to only upgrade
+# to work around this, we move the terraform state first into a different name
+renamed=false
+if [[ $mode == "ignore" ]]; then
+  if [[ -f $workdir/.terraform/terraform.tfstate ]]; then
+    echo "backend: ignore -> renaming existing backend state file before upgrade"
+    mv $workdir/.terraform/terraform.tfstate $workdir/.terraform/.tmp.terraform.tfstate
+    renamed=true
+  fi
+fi
+
+tf init -upgrade -backend=${backend_flag} ${args[@]}
+
+if [[ $renamed == true ]]; then
+  echo "backend: ignore -> moving back renamed backend state file"
+  mv $workdir/.terraform/.tmp.terraform.tfstate $workdir/.terraform/terraform.tfstate
+fi

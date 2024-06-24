@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# if an override cmd exists, use it instead of passing it to spacectl
+spacew_cmd="${SPACECTL_SCRIPTS_DIR}/spacew_$1"
+
+if [[ -f ${spacew_cmd} ]]; then
+  ${spacew_cmd} ${@:2}
+else
+  # shellcheck disable=SC2145
+  [[ $SPACECTL_COMMAND_SHOW != false ]] && >&2 echo "spacectl ${@}"
+  spacectl $@
+fi

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+args=()
+init=false
+workdir=$(pwd)
+for i in "$@"; do
+  case $i in
+    -chdir=*)
+      workdir="${i#*=}"
+      args+=("$i")
+      shift
+      ;;
+    -i)
+      init=auto
+      shift
+      ;;
+    -if)
+      init=force
+      shift
+      ;;
+    *)
+      args+=("$i")
+      shift
+      ;;
+  esac
+done
+
+if [[ $init == "auto" ]] && [[ -n $(ls -A "$workdir" 2>/dev/null | grep -E ".tf$") ]]; then
+  if [[ ! -f "${workdir}/.terraform.lock.hcl" ]] || [[ ! -d "${workdir}/.terraform" ]]; then
+    echo "${workdir}/.terraform.lock.hcl is not found and there are terraform files"
+    tf init
+  else
+    echo "Both .terraform.lock.hcl and .terraform exists. Skipping. Run with -if option to force init"
+  fi
+elif [[ $init == "force" ]]; then
+  tf init
+fi
+
+
+# shellcheck disable=SC2145
+[[ $TF_COMMAND_SHOW != false ]] && >&2 echo "${TF_BIN} ${args[@]}"
+${TF_BIN} ${args[@]}
+

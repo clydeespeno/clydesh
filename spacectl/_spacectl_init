@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# initializes SPACECTLs scripts when the shell is opened the first time
+export SPACECTL_SCRIPTS_DIR="$CLYDESH_HOME/spacectl"
+export SPACECTL_ARTIFACTS_DIR="$CLYDESH_HOME/.spacectl"
+export SPACECTL_DYN_DIR="$CLYDESH_HOME/.spacectl/dyn"
+
+export PATH="$PATH:$SPACECTL_DYN_DIR"
+
+mkdir -p "$SPACECTL_ARTIFACTS_DIR"
+mkdir -p "$SPACECTL_DYN_DIR"
+
+# location of templates when doing spacectlw --props
+mkdir -p $SPACECTL_ARTIFACTS_DIR/template

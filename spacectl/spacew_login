@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2145
+[[ $SPACECTL_COMMAND_SHOW != false ]] && >&2 echo "spacectl profile login"
+spacectl profile login
