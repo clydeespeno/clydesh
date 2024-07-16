@@ -2,7 +2,6 @@
 
 # use the first container if -c is not set
 file=""
-template=""
 template_type=""
 substitute="false"
 _env_vars=""
@@ -12,11 +11,29 @@ dry="false"
 node=""
 pod_node=""
 zone=""
+rm="--rm"
+volumes="[]"
+mounts="[]"
+environments="[]"
 
 for i in "$@"; do
   case $i in
+    --no-rm)
+      rm=""
+      shift;;
     --i=*|--image=*)
       image="${i#*=}"
+      shift;;
+    --env=*|-e=*)
+      add_env="${i#*=}"
+      if [[ $add_env == *"="* ]]; then
+        name="${add_env%=*}"
+        value="${add_env#*=}"
+      else
+        name="$add_env"
+        value="${!name}"
+      fi
+      environments=$(echo "$environments" | jq --argjson env '[{"name": "'$name'","value":"'$value'"}]' '. += $env')
       shift;;
     --node=*)
       node="${i#*=}"
@@ -51,7 +68,21 @@ for i in "$@"; do
     --subst)
       substitute=true
       shift;;
-    --template=*)
+    --mount-secret=*|-ms=*)
+      sec_mount="${i#*=}"
+      mount=$(echo "$sec_mount" | yq -o json '{"mountPath": .path, "name": .name}' | jq -rc)
+      volume=$(echo "$sec_mount" | yq -o json '{"name": .name, "secret": {"secretName": .name}}' | jq -rc)
+      volumes=$(echo "$volumes" | jq --argjson entry "[$volume]" '. += $entry')
+      mounts=$(echo "$mounts" | jq --argjson entry "[$mount]" '. += $entry')
+      shift;;
+    --mount-cm=*|-mc=*)
+      sec_mount="${i#*=}"
+      mount=$(echo "$sec_mount" | yq -o json '{"mountPath": .path, "name": .name}' | jq -rc)
+      volume=$(echo "$sec_mount" | yq -o json '{"name": .name, "configMap": {"configMapName": .name}}' | jq -rc)
+      volumes=$(echo "$volumes" | jq --argjson entry "[$volume]" '. += $entry')
+      mounts=$(echo "$mounts" | jq --argjson entry "[$mount]" '. += $entry')
+      shift;;
+    --t=*|--template=*)
       file="$KUBE_ARTIFACTS_DIR/template/${i#*=}"
       if [[ -f "$file.yaml" ]]; then
         template_type="yaml"
@@ -111,8 +142,20 @@ if [[ -z $image ]]; then
   exit 1
 fi
 
+if [[ "$volumes" != '[]' ]]; then
+  overrides=$(echo "$overrides" | jq --argjson volumes "$volumes" '.spec.volumes = $volumes')
+fi
+
+if [[ "$mounts" != '[]' ]]; then
+  overrides=$(echo "$overrides" | jq --argjson mounts "$mounts" '.spec.containers[0].volumeMounts = $mounts')
+fi
+
+if [[ "$environments" != '[]' ]]; then
+  overrides=$(echo "$overrides" | jq --argjson env "$environments" '.spec.containers[0].env = $env')
+fi
+
 # shellcheck disable=SC2145
-[[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides='$overrides' -i --tty --image=$image ${args[@]}"
+[[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides='$overrides' -i --tty $rm $name --image=$image ${args[@]}"
 
 # shellcheck disable=SC2046
-[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty --image=$image ${args[@]} $name
+[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty $rm --image=$image $name ${args[@]}
