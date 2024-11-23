@@ -78,6 +78,24 @@ git-retag() {
   git push --tags
 }
 
+git-rebranch() {
+  branch=$1
+  current=$(git rev-parse --abbrev-ref HEAD | xargs | tr -d '\n')
+  if [[ $branch == $current ]]; then
+    echo "The target branch is the same as the current branch. Not doing anything"
+    return 0
+  fi
+  
+  if [[ -n $(git for-each-ref --format='%(refname:short)' refs/heads/ | grep '^'$branch'$') ]]; then
+    echo "Deleting branch $branch"
+    git branch -D $branch
+  fi
+
+  git checkout -b $branch
+  git push -f
+  git checkout $current
+}
+
 _gitrebase_completion() {
   local remotes=`git branch -r | awk -F "origin/" '{print $2}'`
   COMPREPLY=($(compgen -W "$remotes"))
