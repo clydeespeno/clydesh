@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+dir=$1
+
+source "$CLYDESH_HOME/utils.sh"
+
+groups=$(perl -Mre=eval -e '
+$regex = qr/'$CDTL_REGEX'/;
+my @group_names = map { ($_ =~ /\(\?<(\w+)>/) ? $1 : () } $regex =~ /(\(\?<\w+>.*?\))/g;
+print "@group_names"
+')
+
+
+matched=$(
+perl -Mre=eval -MJSON -e '
+$regex = qr/'$CDTL_REGEX'/;
+$dir = "'$dir'"; chomp $dir;
+if ($dir =~ $regex) {
+    my %named_captures = %+;
+    my $json = encode_json(\%named_captures);
+    print "$json\n"
+} else {
+    print "{}";
+}'
+)
+
+echo "{}" | jq --argjson matched "$matched" '.matched = $matched' | jq --arg groups "$groups" '.groups = $groups'
+

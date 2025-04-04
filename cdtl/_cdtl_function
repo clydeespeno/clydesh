@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+function cdtl_usage() {
+  cat <<EOF
+cdtl allows you to perform actions in a given template directory.
+The template directory is defined by the \${CDTL_REGEX} variable
+EOF
+}
+
+function cdtl() {
+  # shellcheck disable=SC2068
+  colored="$(_cdtl_dir $@)"
+  # remove color codes
+  uncolored="$(echo "$colored" | sed -r "s/\x1B(\[[0-9;]*[JKmsu]|\(B)//g")"
+  if [[ -d "$uncolored" ]]; then
+    echo "Changing directory $colored"
+    # shellcheck disable=SC2086
+    # shellcheck disable=SC2164
+    cd "$uncolored"
+  else
+    echo "$colored is not a directory"
+  fi
+}

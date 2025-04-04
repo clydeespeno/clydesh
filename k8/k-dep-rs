@@ -3,32 +3,40 @@
 args=()
 # use the first container if -c is not set
 replicas=""
+namespace=""
 action=""
+pending_namespace=""
 for i in "$@"; do
-  case $i in
-    --rs=*)
-      replicas="${i#*=}"
-      action="rs"
-      shift
-      ;;
-    --rm)
-      replicas=0
-      action="remove"
-      shift
-      ;;
-    --rescale)
-      action="rescale"
-      shift
-      ;;
-    --restart)
-      action="restart"
-      shift
-      ;;
-    *)
-      args+=("$i")
-      shift
-      ;;
-  esac
+  if [[ $pending_namespace != "true" ]]; then
+    case $i in
+      -n|--namespace)
+        pending_namespace="true"
+        ;;
+      -n=*|--namespace=*)
+        namespace="-n ${i#*=}"
+        ;;
+      --rs=*)
+        replicas="${i#*=}"
+        action="rs"
+        ;;
+      --rm)
+        replicas=0
+        action="remove"
+        ;;
+      --rescale)
+        action="rescale"
+        ;;
+      --restart)
+        action="restart"
+        ;;
+      *)
+        args+=("$i")
+        ;;
+    esac
+  else
+    pending_namespace=""
+    namespace="-n $i"
+  fi
 done
 
 if [[ -z $action ]]; then
@@ -43,19 +51,19 @@ while read -r line; do
   deploy=$(echo "$line" | awk '{print $1}')
   if [[ $action == "rescale" ]]; then
     echo "Rescaling deployment $deploy."
-    kn scale deployment/"$deploy" --replicas=0
-    kn scale deployment/"$deploy" --replicas="$original_rs"
+    kn $namespace scale deployment/"$deploy" --replicas=0
+    kn $namespace scale deployment/"$deploy" --replicas="$original_rs"
   elif [[ $action == "restart" ]]; then
     echo "Restarting deployment $deploy."
-    kn rollout restart deployment/"$deploy"
+    kn $namespace rollout restart deployment/"$deploy"
   else
     echo "Rescaling deployment $deploy from $original_rs -> $replicas"
-    kn scale deployment/"$deploy" --replicas=$replicas
+    kn $namespace scale deployment/"$deploy" --replicas=$replicas
     if [[ $action == "remove" ]]; then
       echo "deployment $deploy is scaled to $replicas. Press ENTER to delete deployment"
       read
       k-xdep "$deploy"
     fi
   fi
-done < <(kng deploy ${args[@]} --no-headers -o custom-columns=:metadata.name,:.spec.replicas)
+done < <(kng $namespace deploy ${args[@]} --no-headers -o custom-columns=:metadata.name,:.spec.replicas)
 

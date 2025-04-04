@@ -73,7 +73,7 @@ elif [[ $action == "env" ]]; then
   for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
     secret_data=$(kng secret "$sec" -j=".data")
     for k in $(echo "$secret_data" | jq -r "keys[]"); do
-      echo "$k=$(echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d)"
+      echo "$k=\"$(echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d)\""
     done
   done
 else

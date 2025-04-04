@@ -40,6 +40,7 @@ _load_path g8
 _load_path curl
 _load_path spacectl
 _load_path tf
+_load_path cdtl
 
 _load_script() {
   if [[ -s "${CLYDESH_HOME}/${1}.sh" ]]; then
@@ -57,4 +58,3 @@ source "${CLYDESH_HOME}/bb/init.sh"
 
 _load_many utils docker git node ssh eks aws
 
-# adds directory to path, and also sources the init if it exists

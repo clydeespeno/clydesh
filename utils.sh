@@ -5,6 +5,7 @@ workspace () {
 export PARENT_ENV_FILE=.parentenv
 export LOCAL_ENV_FILE=.localenv
 
+# DEPRECATED. Use direnv
 loadfile () {
   filepath=$1
   msg=$2
@@ -15,6 +16,7 @@ loadfile () {
   fi
 }
 
+# DEPRECATED. Use direnv
 parentenv () {
   _IFS=${IFS}
   IFS="/"
@@ -26,26 +28,6 @@ parentenv () {
     loadfile $parent_env_file "loading file $PARENT_ENV_FILE from $parent_env_file";
   done
   IFS=${_IFS}
-}
-
-get_gr() {
-  _IFS=${IFS}
-  IFS="/"
-  path_tokens=($(pwd))
-  curr_path=""
-  root="$(pwd)"
-  for p in $path_tokens; do
-    curr_path="$curr_path/$p"
-    if [ -d "$curr_path/.git" ] && [ "$curr_path" != "$root" ] ; then
-      root=$curr_path
-    fi
-  done
-  IFS=${_IFS}
-  echo $root
-}
-
-cd_gr() {
-  cd $(get_gr)/$1
 }
 
 localenv () {
@@ -82,38 +64,31 @@ sourceload () {
   source $profile
 }
 
-complete_ls() {
-  cwd=$PWD
-  dir=$cwd/$1
-  function _complete_ls() {
-    local comp=$(ls $dir)
-    COMPREPLY=($(compgen -W "$comp"))
-    return 0
-  }
-
-  complete -F _complete_ls ${@:2}
-}
-
-_complete_cd_gr() {
-  cwd=$(pwd)
-  gr=$(get_gr)
-  target=$gr/${COMP_WORDS[COMP_CWORD]}
-  if [ -d "$target" ]; then
-    cd $target
-  else
-    cd $gr
-  fi
- 
-  COMPREPLY=( $(compgen -d) )
-  cd $cwd
-  return 0
-}
-
-complete -F _complete_cd_gr cd_gr
-
 cwdiff () {
   wdiff -n -w $'\033[30;41m' -x $'\033[0m' -y $'\033[30;42m' -z $'\033[0m' $@
 }
+
+# text utilities, underline, bold, color
+function t-und() {
+  echo "$(tput smul)$*$(tput sgr0)"
+}
+
+function t-bold() {
+  echo "$(tput bold)$*$(tput sgr0)"
+}
+
+function t-red() {
+  echo "$(tput setaf 1)$*$(tput sgr0)"
+}
+
+function t-yellow() {
+  echo "$(tput setaf 3)$*$(tput sgr0)"
+}
+
+function t-green() {
+  echo "$(tput setaf 2)$*$(tput sgr0)"
+}
+
 
 parentenv
 localenv

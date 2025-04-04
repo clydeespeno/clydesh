@@ -6,6 +6,7 @@ template_type=""
 substitute="false"
 _env_vars=""
 image=""
+labels=""
 args=()
 dry="false"
 node=""
@@ -23,6 +24,13 @@ for i in "$@"; do
       shift;;
     --i=*|--image=*)
       image="${i#*=}"
+      shift;;
+    -l=*|--label=*)
+      label="${i#*=}"
+      [[ -z "$labels" ]] && labels="{}"
+      key=${label%=*}
+      value=${label#*=}
+      labels=$(echo "$labels" | jq --arg key "$key" --arg value "$value" '.[$key] = $value')
       shift;;
     --env=*|-e=*)
       add_env="${i#*=}"
@@ -140,6 +148,11 @@ fi
 if [[ -z $image ]]; then
   echo "Image is not set. Either ensure that you have an image in overrides or supply it via --i or --image"
   exit 1
+fi
+
+if [[ -n "$labels" ]]; then
+  [[ -z $overrides ]] && overrides="{}"
+  overrides=$(echo "$overrides" | jq --argjson labels "$labels" '.metadata.labels = $labels')
 fi
 
 if [[ "$volumes" != '[]' ]]; then

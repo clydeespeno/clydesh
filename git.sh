@@ -4,38 +4,14 @@ alias gs='git status'
 alias glog='git log --graph --oneline --decorate --date=relative --all'
 alias gaddmit='git add .; git commit -m'
 
-gitf() {
-  git checkout -b feature/$1
+# show git root
+gitr() {
+  git rev-parse --show-toplevel
 }
 
-gitDeployTags() {
-  git tag --points-at HEAD | grep d-*-*
-}
-
-git-dtags() {
-  a=( $(gitDeployTags) )
-  for tag in "${a[@]}"; do
-    echo $tag
-  done
-}
-
-hasAll() {
-  case $1 in "d-ALL-"*) return 0 ;; esac
-  return 1
-}
-
-gitCountries() {
-  a=( $(gitDeployTags) )
-  local tmp
-  for tmp in "${a[@]}"; do
-    c=$(echo $tmp | awk -F "-" '/d/{print $2}')
-    echo $c
-  done
-}
-
-git-hasall() {
-  a=( $(gitDeployTags) )
-  if hasAll "${a[@]}"; then echo "y"; else echo "n"; fi
+# cd into git root
+cd-gr() {
+  cd "$(gitr)" || exit
 }
 
 gitcleanup() {
@@ -64,12 +40,13 @@ git-merge-to() {
   current=$(git branch --show-current)
   git checkout $target
   git merge $current
-  if [[ $PUSH=="true" ]]; then
+  if [[ $PUSH == "true" ]]; then
     git push
   fi
   git checkout $current
 }
 
+# deletes an existing tag and points it to the current head
 git-retag() {
   tag=$1
   git tag -d $tag
@@ -78,6 +55,9 @@ git-retag() {
   git push --tags
 }
 
+# recreate the current branch from a target branch
+# useful when you want to start from the beginning
+# NOTE: destructive operation
 git-rebranch() {
   branch=$1
   current=$(git rev-parse --abbrev-ref HEAD | xargs | tr -d '\n')

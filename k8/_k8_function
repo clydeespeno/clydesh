@@ -12,19 +12,19 @@ function _k8_read_or_write() {
     case $i in
       --global|-g)
         mode="global"
-        shift # past argument=value
+        shift
         ;;
       --shell|-s)
         mode="shell"
-        shift # past argument=value
+        shift
         ;;
       --local|-l)
         mode="local"
-        shift # past argument=value
+        shift
         ;;
       --debug)
         debug=true
-        shift # past argument=value
+        shift
         ;;
       --target=*)
         target="${i#*=}"
@@ -36,7 +36,7 @@ function _k8_read_or_write() {
         ;;
       *)
         value=$i
-        shift # past argument=value
+        shift
         ;;
     esac
   done
@@ -44,18 +44,18 @@ function _k8_read_or_write() {
   # if value is not set, it's a read
   if [[ -z $value ]]; then
     K8_DEBUG=${debug} _k8_read \
-      --target=$target \
+      --target="$target" \
       --mode=$mode
   else
     if [[ $mode == "shell" ]]; then
       K8_DEBUG=${debug} _k8_write_shell \
-        --target=$target \
-        $value
+        --target="$target" \
+        "$value"
     else
       K8_DEBUG=${debug} _k8_write \
         --mode=$mode \
-        --target=$target \
-        $value
+        --target="$target" \
+        "$value"
     fi
   fi
 }
@@ -98,11 +98,11 @@ function _k8_write_shell() {
 function ks() {
   local alias=""
   args=()
-  show=false
+  use=false
   for i in "$@"; do
     case $i in
-      --show)
-        show=true
+      --use|-u)
+        use=true
         shift
         ;;
       # ignore all options, just get the alias
@@ -117,21 +117,34 @@ function ks() {
     esac
   done
 
+  if [[ -z $alias ]] && [[ -n $KUBE_ALIAS ]]; then
+    echo "Alias is not supplied but available from KUBE_ALIAS. Setting alias to $KUBE_ALIAS"
+    alias=${KUBE_ALIAS}
+  fi
+
   if [[ -f "$KUBE_ARTIFACTS_DIR/aliases/$alias" ]]; then
-    echo "Setting context from alias $alias"
+    echo "Switching context from alias $alias"
     ctx=$(awk '{print $1}' < "$KUBE_ARTIFACTS_DIR/aliases/$alias")
     ns=$(awk '{print $2}' < "$KUBE_ARTIFACTS_DIR/aliases/$alias")
     # shellcheck disable=SC2068
     k-ns ${args[@]} "$ns"
     # shellcheck disable=SC2068
     k-ctx ${args[@]} "$ctx"
-  fi
 
-  if [[ $show == "true" ]]; then
     # shellcheck disable=SC2068
-    k-ns ${args[@]}
+    echo "Setting context: $(k-ctx ${args[@]})"
     # shellcheck disable=SC2068
-    k-ctx ${args[@]}
+    echo "Setting namespace: $(k-ns ${args[@]})"
+    if [[ $use == "true" ]]; then
+      k config use-context "$(k-ctx)"
+    fi
+  else
+    echo "Unable to switch to an alias."
+    if [[ -z $alias ]]; then
+      echo "Alias is not supplied and also could not be loaded from KUBE_ALIAS. "
+    elif [[ ! -f "$KUBE_ARTIFACTS_DIR/aliases/$alias" ]]; then
+      echo "Unable to locate file $KUBE_ARTIFACTS_DIR/aliases/$alias"
+    fi
   fi
 }
 
