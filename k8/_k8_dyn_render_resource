@@ -3,38 +3,35 @@
 resource=$1
 
 function render_describe() {
+  echo "k8 rendering resource describe k-d$1"
   cat > "$KUBE_DYN_DIR/k-d$1" <<EOF
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2046
-# shellcheck disable=SC2068
-knd $resource \$@
+knd $resource "\$@"
 EOF
 }
 
 function render_get() {
+  echo "k8 rendering resource get k-$1"
   cat > "$KUBE_DYN_DIR/k-$1" <<EOF
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2046
-# shellcheck disable=SC2068
-kng $resource \$@
+kng $resource "\$@"
 EOF
 }
 
 function render_delete() {
+  echo "k8 rendering resource delete k-x$1"
   cat > "$KUBE_DYN_DIR/k-x$1" <<EOF
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2046
-# shellcheck disable=SC2068
-knx $resource \$@
+knx $resource "\$@"
 EOF
 }
 
 
-for alias in ${@:2}; do
-  render_describe $alias
-  render_get $alias
-  render_delete $alias
+for alias in "${@:2}"; do
+  render_describe "$alias"
+  render_get "$alias"
+  render_delete "$alias"
 done

@@ -4,6 +4,134 @@ ssm_connect="false"
 ssm_flags=""
 pod=""
 args=()
+custom_columns=()
+
+# custom columns by alias
+function get_cc() {
+  case $1 in
+    NAME|name|n)
+      get_cc "M:name"
+      ;;
+    ZONE|zone|z)
+      get_cc "L:topology.kubernetes.io/zone"
+      ;;
+    ZONE_ID|zone-id|zid)
+      get_cc "L:topology.k8s.aws/zone-id"
+      ;;
+    INSTANCE_TYPE|i-type|it)
+      get_cc "L:node.kubernetes.io/instance-type"
+      ;;
+    ARCH|arch|a)
+      get_cc "L:kubernetes.io/arch"
+      ;;
+    CAPACITY_TYPE|capacity|ct)
+      get_cc "L:CAPACITY_TYPE:eks.amazonaws.com/capacityType"
+      ;;
+    NODE_GROUP|node-group|group|g)
+      get_cc "L:eks.amazonaws.com/nodegroup"
+      ;;
+    IP|ip)
+      get_cc "A:IP:alpha.kubernetes.io/provided-node-ip"
+      ;;
+    CREATED_AT|created|c-at)
+      get_cc "M:CREATED_AT:creationTimestamp"
+      ;;
+    ALLOC_CPU|a-cpu)
+      get_cc "ST:ALLOC_CPU:allocatable.cpu"
+      ;;
+    ALLOC_MEM|a-mem)
+      get_cc "ST:ALLOC_MEM:allocatable.memory"
+      ;;
+    ALLOC_E_STORAGE|a-es)
+      get_cc "ST:ALLOC_E_STORAGE:allocatable.ephemeral-storage"
+      ;;
+    CAP_CPU|c-cpu)
+      get_cc "ST:CAP_CPU:capacity.cpu"
+      ;;
+    CAP_MEM|c-mem)
+      get_cc "ST:CAP_MEM:capacity.memory"
+      ;;
+    CAP_E_STORAGE|c-es)
+      get_cc "ST:CAP_E_STORAGE:capacity.ephemeral-storage"
+      ;;
+    STATUS|s)
+      get_cc 'ST:STATUS:conditions[?(@.status=="True")].type'
+      ;;
+    L:*|A:*|M:*|SP:*|ST:*)
+      parse_label "$1"
+      ;;
+    *)
+      echo "$1"
+      ;;
+  esac
+}
+
+function parse_label() {
+  tpe="${1%%:*}"
+  prefix=""
+  lbl="${1#*:}"
+  # determines the type of metadata
+  case "$tpe" in
+    L)
+      prefix="metadata.labels"
+      ;;
+    A)
+      prefix="metadata.annotations"
+      ;;
+    M)
+      prefix="metadata"
+      ;;
+    SP)
+      prefix="spec"
+      ;;
+    ST)
+      prefix="status"
+      ;;
+  esac
+  case "$lbl" in
+    *:*)
+      name=${lbl%:*}
+      value=${lbl#*:}
+      ;;
+    *)
+      value=$lbl
+      # if the label matches something like topology.kubernetes.io/zone, use `ZONE`
+      if echo "$lbl" | grep -q -E '.+\/.+'; then
+        name=$(echo "$lbl" | sed -E 's/.+\/(.+)/\1/g')
+      elif echo "$lbl" | grep -q -E '.+\..+'; then
+        name=$(echo "$lbl" | sed -E 's/.+\.(.+)/\1/g')
+      else
+        name="$lbl"
+      fi
+      ;;
+  esac
+  # if value contains a /, treat it as as string
+  if echo "$value" | grep -q -E '.+\/.+'; then
+    value=$(echo "$value" | sed -E 's/\./\\./g')
+  fi
+  name=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+  echo "$name:$prefix.$value"
+}
+
+# get alias for custom columns output
+function get_custom_columns_alias() {
+  cols=()
+  case $1 in
+    detailed-zone|dz)
+      cols+=("$(get_cc zone)" "$(get_cc name)" "$(get_cc zone-id)" "$(get_cc ip)" "$(get_cc group)" "$(get_cc capacity)" "$(get_cc arch)" "$(get_cc i-type)")
+      ;;
+    zone|z)
+      cols+=("$(get_cc zone)" "$(get_cc name)" "$(get_cc zone-id)" "$(get_cc ip)" "$(get_cc group)")
+      ;;
+    alloc|a)
+      cols+=("$(get_cc ip)" "$(get_cc i-type)" "$(get_cc a-cpu)" "$(get_cc a-mem)")
+      ;;
+    cap|c)
+      cols+=("$(get_cc ip)" "$(get_cc i-type)" "$(get_cc c-cpu)" "$(get_cc c-mem)")
+      ;;
+  esac
+  echo "${cols[@]}"
+}
 
 for i in "$@"; do
   case $i in
@@ -12,19 +140,37 @@ for i in "$@"; do
     --ssm=*|--ssm)
       ssm_connect="true"
       [[ $i == *"--ssm="* ]] && ssm_flags="${i#*=}"
-      shift
+      ;;
+    # short-cut for no-headers
+    -nh)
+      args+=("--no-headers")
       ;;
     # match the node
     --pod=*)
       pod="${i#*=}"
-      shift
+      ;;
+    # automatically changes the output to custom-columns
+    --cc=*)
+      for cc in $(echo "${i#*=}" | tr ',' '\n'); do
+        custom_columns+=("$(get_cc "$cc")")
+      done
+      ;;
+    # custom column outputs
+    --cca=*)
+      # shellcheck disable=SC2207
+      custom_columns+=($(get_custom_columns_alias "${i#*=}"))
       ;;
     *)
       args+=("$i")
-      shift
       ;;
   esac
 done
+
+function join_by { local IFS="$1"; shift; echo "$*"; }
+
+if [[ ! ${#custom_columns} -eq 0 ]]; then
+  args+=("-o" "custom-columns=$(join_by "," "${custom_columns[@]}")")
+fi
 
 nodes=""
 
@@ -38,8 +184,7 @@ if [[ $ssm_connect == "true" ]]; then
   echo "Initiating SSM session to instance ${instance_id} <$node_name>"
   aws ssm start-session --target "$instance_id"
 else
-  # shellcheck disable=SC2068
-  result=$(kg nodes ${args[@]})
+  result=$(kg nodes "${args[@]}")
   # shellcheck disable=SC2199
   if [[ "${args[@]}" != *"--no-headers"* ]]; then
     echo "$result" | head -n1
@@ -47,7 +192,7 @@ else
   fi
 
   if [[ -n $nodes ]]; then
-    for n in $(echo "$nodes"); do
+    for n in $nodes; do
       echo "$result" | grep "$n"
     done
   else

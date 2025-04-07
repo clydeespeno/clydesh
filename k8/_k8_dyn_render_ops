@@ -3,26 +3,24 @@
 operator=$1
 
 function render_ns() {
+  echo "k8 rendering ops kn$1"
   cat > "$KUBE_DYN_DIR/kn$1" <<EOF
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2046
-# shellcheck disable=SC2068
-kn $operator \$@
+kn $operator "\$@"
 EOF
 }
 
 function render_no_ns() {
+  echo "k8 rendering ops k$1"
   cat > "$KUBE_DYN_DIR/k$1" <<EOF
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2046
-# shellcheck disable=SC2068
-k $operator \$@
+k $operator "\$@"
 EOF
 }
 
-for alias in ${@:2}; do
-  render_ns $alias
-  render_no_ns $alias
+for alias in "${@:2}"; do
+  render_ns "$alias"
+  render_no_ns "$alias"
 done

@@ -38,19 +38,16 @@ done
 [[ -n $key ]] && args+=("-j")
 
 if [[ $action == "value" ]]; then
-  # shellcheck disable=SC2046
-  # shellcheck disable=SC2068
-  result=$(kng secret ${args[@]})
+  result=$(kng secret "${args[@]}")
   result=$(echo "$result" | jq -r '.data["'$key'"]')
   [[ $decode == "true" ]] && result=$(echo "$result" | base64 -d)
   echo "$result"
 elif [[ $action == "mount" ]]; then
-  # shellcheck disable=SC2068
-  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
-    rendered_dir=$(printf $dir $sec)
+  for sec in $(kng secret "${args[@]}" --no-headers -o custom-columns=:metadata.name); do
+    rendered_dir=$(printf "$dir" "$sec")
     # shellcheck disable=SC2086
     mkdir -p $rendered_dir
-    secret_data=$(kng secret $sec -j=".data")
+    secret_data=$(kng secret "$sec" -j=".data")
     for k in $(echo "$secret_data" | jq -r "keys[]"); do
       echo "mounting secret key $k to $rendered_dir/$k"
       echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d > "$rendered_dir/$k"
@@ -58,8 +55,8 @@ elif [[ $action == "mount" ]]; then
   done
 elif [[ $action == "64" ]]; then
   # shellcheck disable=SC2068
-  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
-    secret_data=$(kng secret $sec -j=".data")
+  for sec in $(kng secret "${args[@]}" --no-headers -o custom-columns=:metadata.name); do
+    secret_data=$(kng secret "$sec" -j=".data")
     echo "Rendering secret $sec in base64"
     for k in $(echo "$secret_data" | jq -r "keys[]"); do
       echo "$k:"
@@ -69,15 +66,13 @@ elif [[ $action == "64" ]]; then
     done
   done
 elif [[ $action == "env" ]]; then
-  # shellcheck disable=SC2068
-  for sec in $(kng secret ${args[@]} --no-headers -o custom-columns=:metadata.name); do
+  for sec in $(kng secret "${args[@]}" --no-headers -o custom-columns=:metadata.name); do
     secret_data=$(kng secret "$sec" -j=".data")
     for k in $(echo "$secret_data" | jq -r "keys[]"); do
       echo "$k=\"$(echo "$secret_data" | jq -r '.["'$k'"]' | base64 -d)\""
     done
   done
 else
-  # shellcheck disable=SC2068
-  kng secret ${args[@]}
+  kng secret "${args[@]}"
 fi
 

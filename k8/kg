@@ -39,7 +39,7 @@ for i in "$@"; do
 done
 
 # shellcheck disable=SC2068
-result=$(k get ${args[@]})
+result=$(k get "${args[@]}")
 
 [[ $neat == "true" ]] && result=$(echo "$result" | k-neat)
 

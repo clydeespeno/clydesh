@@ -3,5 +3,4 @@
 # shellcheck disable=SC2145
 [[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $@"
 # shellcheck disable=SC2046
-# shellcheck disable=SC2068
-kubectl $(_k8_flag ctx) $@
+kubectl $(_k8_flag ctx) "$@"

@@ -110,7 +110,7 @@ done
 overrides=""
 
 if [[ $file == "-" ]] || [[ -f $file ]]; then
-  overrides=$(cat $file)
+  overrides=$(cat "$file")
   if [[ $substitute == "true" ]]; then
     overrides=$(envsubst "$_env_vars" <<< "$overrides")
   fi
@@ -134,10 +134,10 @@ fi
 
 if [[ -n $node ]]; then
   [[ -z $overrides ]] && overrides="{}"
-  overrides=$(echo "$overrides" | jq --arg node $node '.spec.nodeName = $node')
+  overrides=$(echo "$overrides" | jq --arg node "$node" '.spec.nodeName = $node')
 elif [[ -n $zone ]]; then
   [[ -z $overrides ]] && overrides="{}"
-  overrides=$(echo "$overrides" | jq --arg zone $zone '.spec.nodeSelector["topology.kubernetes.io/zone"] = $zone')
+  overrides=$(echo "$overrides" | jq --arg zone "$zone" '.spec.nodeSelector["topology.kubernetes.io/zone"] = $zone')
 fi
 
 name=""
@@ -171,4 +171,4 @@ fi
 [[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides='$overrides' -i --tty $rm $name --image=$image ${args[@]}"
 
 # shellcheck disable=SC2046
-[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty $rm --image=$image $name ${args[@]}
+[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty $rm --image="$image" "$name" "${args[@]}"

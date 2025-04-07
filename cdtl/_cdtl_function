@@ -8,6 +8,11 @@ EOF
 }
 
 function cdtl() {
+  # add more commands here, by default, this would just perform switching directories
+  _cdtl_chdir "$@"
+}
+
+function _cdtl_chdir() {
   # shellcheck disable=SC2068
   colored="$(_cdtl_dir $@)"
   # remove color codes
@@ -20,4 +25,16 @@ function cdtl() {
   else
     echo "$colored is not a directory"
   fi
+}
+
+function a() {
+  first_arg="${1}"
+  echo "removing $first_arg"
+  b "${@:2}"
+}
+
+function b() {
+  for arg in "$@"; do
+    echo "args are $arg"
+  done
 }

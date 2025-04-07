@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
 
 # shellcheck disable=SC2046
-# shellcheck disable=SC2068
-k $(_k8_flag ns) $@
+k $(_k8_flag ns) "$@"

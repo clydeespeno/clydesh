@@ -29,7 +29,7 @@ fi
 
 function _k8_render_func_mapping() {
   echo $1
-  for alias in ${@:2}; do
+  for alias in "${@:2}"; do
     for prefix in $(echo "k- k-x k-d"); do
       echo "$prefix$alias"
     done
@@ -65,7 +65,7 @@ function _k8_dyn_render_resources_all() {
   local dyn_line
   while read -r dyn_line; do
     dyn_array=($(echo $dyn_line))
-    _k8_dyn_render_resource ${dyn_array[@]}
+    _k8_dyn_render_resource "${dyn_array[@]}"
   done < "$KUBE_ARTIFACTS_DIR/dyn_render_resources"
 }
 
@@ -73,7 +73,7 @@ function _k8_dyn_render_ops_all() {
   local dyn_line
   while read -r dyn_line; do
     dyn_array=($(echo $dyn_line))
-    _k8_dyn_render_ops ${dyn_array[@]}
+    _k8_dyn_render_ops "${dyn_array[@]}"
   done < "$KUBE_ARTIFACTS_DIR/dyn_render_ops"
 }
 

@@ -25,8 +25,8 @@ if [[ -n $rs ]]; then
 EOF
 )
   # shellcheck disable=SC2068
-  for ss in $(kng statefulset ${args[@]} --name-only); do
-    kn patch statefulset $ss -p "$patch"
+  for ss in $(kng statefulset "${args[@]}" --name-only); do
+    kn patch statefulset "$ss" -p "$patch"
   done
 else
   # shellcheck disable=SC2068
