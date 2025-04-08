@@ -89,6 +89,10 @@ function t-green() {
   echo "$(tput setaf 2)$*$(tput sgr0)"
 }
 
+function uncolor() {
+  echo "$1" | sed -r "s/\x1B(\[[0-9;]*[JKmsu]|\(B)//g"
+}
+
 
 parentenv
 localenv

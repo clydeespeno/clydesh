@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source "$CLYDESH_HOME/utils.sh"
+
 function cdtl_usage() {
   cat <<EOF
 cdtl allows you to perform actions in a given template directory.
@@ -8,33 +10,128 @@ EOF
 }
 
 function cdtl() {
-  # add more commands here, by default, this would just perform switching directories
-  _cdtl_chdir "$@"
+  case "$1" in
+    cd)
+      _cdtl_chdir "${@:2}"
+      ;;
+    cmd)
+      _cdtl_eval "${@:2}"
+      ;;
+    ..)
+      if [[ -n $CDTL_BASE ]]; then
+        >&2 echo "Changing to base directory: $CDTL_BASE"
+      else
+        >&2 echo "\$CDTL_BASE is unset. Doing nothing."
+      fi
+      ;;
+    *)
+      echo "Unknown command $1"
+      ;;
+  esac
 }
 
 function _cdtl_chdir() {
   # shellcheck disable=SC2068
   colored="$(_cdtl_dir $@)"
   # remove color codes
-  uncolored="$(echo "$colored" | sed -r "s/\x1B(\[[0-9;]*[JKmsu]|\(B)//g")"
+  uncolored="$(uncolor "$colored")"
   if [[ -d "$uncolored" ]]; then
-    echo "Changing directory $colored"
+    >&2 echo "Changing directory $colored"
     # shellcheck disable=SC2086
     # shellcheck disable=SC2164
     cd "$uncolored"
   else
-    echo "$colored is not a directory"
+    >&2 echo "$colored is not a directory"
   fi
 }
 
-function a() {
-  first_arg="${1}"
-  echo "removing $first_arg"
-  b "${@:2}"
-}
-
-function b() {
-  for arg in "$@"; do
-    echo "args are $arg"
+function _cdtl_eval() {
+  # applies a command to all matching directories in a given dir
+  args=()
+  cmd=""
+  while [[ "$#" -gt 0 ]]; do
+    case $1 in
+      # check for flags that are of the format -k=v
+      -*=*)
+        args+=("$1")
+        shift
+        ;;
+      # check for flags of the format -k v
+      -*)
+        case $2 in
+          -*)
+            # ignore if this is just a flag, unless useful
+            shift
+            ;;
+          *)
+            if [[ -z $2 ]]; then
+              # ignore since this is just a flag
+              shift
+            else
+              args+=("$1" "$2")
+              shift 2
+            fi
+        esac
+        ;;
+      *)
+        if [[ -d "$1" ]]; then
+          args+=("$1")
+        else
+          cmd="$1"
+        fi
+        shift
+        ;;
+    esac
   done
+
+  if [[ -z "$cmd" ]]; then
+    >&2 echo "Unable to determine command from input '$*'"
+    exit 1
+  fi
+
+  filters=$(_cdtl_filters "${args[@]}")
+  dir=$(echo "$filters" | jq -cr '._dir')
+  [[ "$dir" == "null" ]] && dir=$PWD
+
+  function exists_in_filter() {
+    local filters="$1"
+    local template="$2"
+    local f_key="$3"
+
+    for f_v in $(echo "$filters" | jq -r --arg k "$f_key" '.[$k] | .[]'); do
+      if [[ $(echo "$template" | jq -r --arg k "$f_key" '.matched[$k]') == "$f_v" ]]; then
+        echo "true"
+        return
+      fi
+    done
+
+    echo "false"
+  }
+
+  function matches_filters() {
+    filters="$1"
+    template="$2"
+
+    for f_key in $(echo "$filters" | jq -rc '. |= keys | .[]' | grep -v "_dir"); do
+      if [[ $(exists_in_filter "$filters" "$template" "$f_key") == "false" ]]; then
+        echo "false"
+        return
+      fi
+    done
+
+    echo "true"
+  }
+
+  curr_dir=$PWD
+
+  for d in $(_cdtl_dirs "$dir"); do
+    d_template=$(_cdtl_template "$d")
+    if [[ $(matches_filters "$filters" "$d_template") == "true" ]]; then
+      >&2 echo "running '$cmd' in $d"
+      cd "$d" || exit
+      eval "$cmd"
+    fi
+  done
+
+  cd $curr_dir || exit
 }

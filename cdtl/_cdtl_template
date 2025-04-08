@@ -2,6 +2,8 @@
 
 dir=$1
 
+_cdtl_debug "checking template for directory $1"
+
 source "$CLYDESH_HOME/utils.sh"
 
 groups=$(perl -Mre=eval -e '

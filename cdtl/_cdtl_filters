@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+filters="{}"
+
+function get_filter() {
+  local filters="$1"
+  local key="$2"
+  local value="$3"
+  local filter
+  filter=$(echo "$filters" | jq -r ".${key}")
+  if [[ -z $filter ]]; then
+    filter="[]"
+  fi
+
+  for v in $value; do
+    filter=$(echo "$filter" | jq -rc --arg value "$v" '. + [$value]')
+  done
+  echo "$filter" | jq '. |= unique'
+}
+
+function set_filter() {
+  local filters="$1"
+  local key="$2"
+  local filter="$3"
+
+  echo "$filters" | jq --arg key "$key" --argjson filter "$filter" '.[$key] = $filter'
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    # check for flags that are of the format -k=v
+    -*=*)
+      key=$(echo "${1%=*}" | cut -d '-' -f 2)
+      filter=$(get_filter "$filters" "$key" "${1#*=}")
+      filters=$(set_filter "$filters" "$key" "$filter")
+      shift
+      ;;
+    # check for flags of the format -k v
+    -*)
+      case $2 in
+        -*)
+          # ignore if this is just a flag, unless useful
+          shift
+          ;;
+        *)
+          if [[ -z $2 ]]; then
+            # ignore since this is just a flag
+            shift
+          else
+            key=$(printf "%s" "$1" | tr -d '-')
+            filter=$(get_filter "$filters" "$key" "$2")
+            filters=$(set_filter "$filters" "$key" "$filter")
+            shift 2
+          fi
+      esac
+      ;;
+    *)
+      filters=$(echo "$filters" | jq --arg dir "$1" '._dir = $dir')
+      shift
+      ;;
+  esac
+done
+
+echo "$filters"

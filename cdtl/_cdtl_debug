@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+[[ $CDTL_DEBUG == "true" ]] && >&2 echo "$@"

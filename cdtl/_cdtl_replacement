@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+replacements="{}"
+
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    # check for flags that are of the format -k=v
+    -*=*)
+      key=$(echo "${1%=*}" | cut -d '-' -f 2)
+      value=${1#*=}
+      replacements=$(echo "$replacements" | jq --arg key "$key" --arg value "$value" '.[$key] = $value')
+      shift
+      ;;
+    # check for flags of the format -k v
+    -*)
+      case $2 in
+        -*)
+          # ignore if this is just a flag, unless useful
+          shift
+          ;;
+        *)
+          if [[ -z $2 ]]; then
+            # ignore since this is just a flag
+            shift
+          else
+            key=$(printf "%s" "$1" | tr -d '-')
+            replacements=$(echo "$replacements" | jq --arg key "$key" --arg value "$2" '.[$key] = $value')
+            shift 2
+          fi
+      esac
+      ;;
+    *)
+      replacements=$(echo "$replacements" | jq --arg dir "$1" '._dir = $dir')
+      shift
+      ;;
+  esac
+done
+
+echo "$replacements"

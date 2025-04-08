@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+source "$CLYDESH_HOME/utils.sh"
+
+dir=${1:-$PWD}
+_cdtl_debug "checking matching directories for $dir"
+
+template=$(_cdtl_template "$dir")
+
+if [[ $(echo "$template" | jq -r ".matched") == "{}" ]]; then
+  >&2 echo "The current directory does not match the template regex ${CDTL_REGEX}"
+  exit 0
+fi
+
+head=$(echo "$template" | jq -r ".matched.head")
+tail=$(echo "$template" | jq -r ".matched.tail")
+directories=$(find "$head" -type d -not -path "*/.*")
+
+# show all directories that matched the template
+for d in $directories; do
+  if [[ "$d" == *"$tail" ]]; then
+    echo "$d"
+  fi
+done

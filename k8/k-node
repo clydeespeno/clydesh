@@ -168,7 +168,7 @@ done
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
 
-if [[ ! ${#custom_columns} -eq 0 ]]; then
+if [[ ${#custom_columns} -gt 0 ]]; then
   args+=("-o" "custom-columns=$(join_by "," "${custom_columns[@]}")")
 fi
 
