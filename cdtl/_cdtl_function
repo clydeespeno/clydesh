@@ -18,10 +18,11 @@ function cdtl() {
       _cdtl_eval "${@:2}"
       ;;
     ..)
-      if [[ -n $CDTL_BASE ]]; then
+      if [[ -n $CDTL_BASE ]] && [[ -d $CDTL_BASE ]]; then
         >&2 echo "Changing to base directory: $CDTL_BASE"
+        cd "$CDTL_BASE" || return
       else
-        >&2 echo "\$CDTL_BASE is unset. Doing nothing."
+        >&2 echo "\$CDTL_BASE ($CDTL_BASE) is not a valid directory. Doing nothing."
       fi
       ;;
     *)
@@ -46,90 +47,27 @@ function _cdtl_chdir() {
 }
 
 function _cdtl_eval() {
-  # applies a command to all matching directories in a given dir
-  args=()
-  cmd=""
-  while [[ "$#" -gt 0 ]]; do
-    case $1 in
-      # check for flags that are of the format -k=v
-      -*=*)
-        args+=("$1")
-        shift
-        ;;
-      # check for flags of the format -k v
-      -*)
-        case $2 in
-          -*)
-            # ignore if this is just a flag, unless useful
-            shift
-            ;;
-          *)
-            if [[ -z $2 ]]; then
-              # ignore since this is just a flag
-              shift
-            else
-              args+=("$1" "$2")
-              shift 2
-            fi
-        esac
-        ;;
-      *)
-        if [[ -d "$1" ]]; then
-          args+=("$1")
-        else
-          cmd="$1"
-        fi
-        shift
-        ;;
-    esac
-  done
-
-  if [[ -z "$cmd" ]]; then
-    >&2 echo "Unable to determine command from input '$*'"
-    exit 1
-  fi
-
-  filters=$(_cdtl_filters "${args[@]}")
-  dir=$(echo "$filters" | jq -cr '._dir')
+  filter=$(_cdtl_filters "$@")
+  dir=$(echo "$filter" | jq -cr '._dir')
+  local cmd
   [[ "$dir" == "null" ]] && dir=$PWD
-
-  function exists_in_filter() {
-    local filters="$1"
-    local template="$2"
-    local f_key="$3"
-
-    for f_v in $(echo "$filters" | jq -r --arg k "$f_key" '.[$k] | .[]'); do
-      if [[ $(echo "$template" | jq -r --arg k "$f_key" '.matched[$k]') == "$f_v" ]]; then
-        echo "true"
-        return
-      fi
-    done
-
-    echo "false"
-  }
-
-  function matches_filters() {
-    filters="$1"
-    template="$2"
-
-    for f_key in $(echo "$filters" | jq -rc '. |= keys | .[]' | grep -v "_dir"); do
-      if [[ $(exists_in_filter "$filters" "$template" "$f_key") == "false" ]]; then
-        echo "false"
-        return
-      fi
-    done
-
-    echo "true"
-  }
 
   curr_dir=$PWD
 
+  _cdtl_debug "Using $dir as basis for evaluation."
+  _cdtl_debug "Using filter $filter"
+
   for d in $(_cdtl_dirs "$dir"); do
-    d_template=$(_cdtl_template "$d")
-    if [[ $(matches_filters "$filters" "$d_template") == "true" ]]; then
-      >&2 echo "running '$cmd' in $d"
+    dir_filter=$(_cdtl_eval_dir_filter --filter="$filter" --dir="$dir")
+    _cdtl_debug "Checking if $dir matches the filter $dir_filter"
+    if [[ $(echo "$dir_filter" | jq -r ".matches") == "true" ]]; then
       cd "$d" || exit
-      eval "$cmd"
+      >&2 echo "Running command(s) in $d"
+      # we need to use read to split the cmds into line separate commands
+      while IFS=$'\n' read -r cmd; do
+        >&2 echo "evaluating '$cmd'"
+        eval "$cmd"
+      done < <(echo "${dir_filter}" | jq -rc '.filter._cmds[]')
     fi
   done
 

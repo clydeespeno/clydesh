@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+filter=""
+dir=""
+args=()
+for i in "$@"; do
+  case $i in
+    --filter=*)
+      filter="${i#*=}"
+      ;;
+    --dir=*)
+      dir="${i#*=}"
+      ;;
+    *)
+      args+=("$i")
+      ;;
+  esac
+done
+
+[[ -z "$filter" ]] && filter=$(_cdtl_filters "${args[@]}")
+dir=${dir:-$(echo "$filter" | jq -cr '._dir')}
+
+function exists_in_filter() {
+  local filter="$1"
+  local template="$2"
+  local f_key="$3"
+
+  for f_v in $(echo "$filter" | jq -r --arg k "$f_key" '.[$k] | .[]'); do
+    if [[ $(echo "$template" | jq -r --arg k "$f_key" '.matched[$k]') == "$f_v" ]]; then
+      echo "true"
+      return
+    fi
+  done
+
+  echo "false"
+}
+
+function matches_filters() {
+  filter="$1"
+  template="$2"
+
+  for f_key in $(echo "$filter" | jq -rc '. |= keys | .[]' | grep -v "_dir" | grep -v "_cmds"); do
+    if [[ $(exists_in_filter "$filter" "$template" "$f_key") == "false" ]]; then
+      echo "false"
+      return
+    fi
+  done
+
+  echo "true"
+}
+
+# set the filter to an empty template and matches to false
+dir_filter=$(echo '{"template":{},"matches":false}' | jq --argjson filter "$filter" '.filter = $filter')
+
+if [[ -n "$dir" ]] && [[ -d "$dir" ]]; then
+  d_template=$(_cdtl_template "$dir")
+  matches=$(matches_filters "$filter" "$d_template")
+  dir_filter=$(
+    echo "$dir_filter" |
+    jq --argjson template "$d_template" '.template = $template' |
+    jq --argjson matches "$matches" '.matches = $matches'
+  )
+fi
+
+echo "$dir_filter"

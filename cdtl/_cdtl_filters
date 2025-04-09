@@ -55,7 +55,15 @@ while [[ "$#" -gt 0 ]]; do
       esac
       ;;
     *)
-      filters=$(echo "$filters" | jq --arg dir "$1" '._dir = $dir')
+      if [[ -d "$1" ]]; then
+        filters=$(echo "$filters" | jq --arg dir "$1" '._dir = $dir')
+      else
+        key="_cmds"
+        cmds_filter=$(echo "$filters" | jq -r "._cmds")
+        [[ -z $cmds_filter ]] && cmds_filter="[]"
+        cmds_filter=$(echo "$cmds_filter" | jq -rc --arg v "$1" '. + [$v]')
+        filters=$(set_filter "$filters" "$key" "$cmds_filter")
+      fi
       shift
       ;;
   esac
