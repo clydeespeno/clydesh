@@ -14,7 +14,7 @@ function cdtl() {
     cd)
       _cdtl_chdir "${@:2}"
       ;;
-    cmd)
+    cmd|x)
       _cdtl_eval "${@:2}"
       ;;
     ..)
@@ -26,7 +26,8 @@ function cdtl() {
       fi
       ;;
     *)
-      echo "Unknown command $1"
+      # if it's an unknown command, we default to use `cd`
+      _cdtl_chdir "$@"
       ;;
   esac
 }
@@ -58,8 +59,8 @@ function _cdtl_eval() {
   _cdtl_debug "Using filter $filter"
 
   for d in $(_cdtl_dirs "$dir"); do
-    dir_filter=$(_cdtl_eval_dir_filter --filter="$filter" --dir="$dir")
-    _cdtl_debug "Checking if $dir matches the filter $dir_filter"
+    dir_filter=$(_cdtl_eval_dir_filter --filter="$filter" --dir="$d")
+    _cdtl_debug "Checking if $d matches the filter $dir_filter"
     if [[ $(echo "$dir_filter" | jq -r ".matches") == "true" ]]; then
       cd "$d" || exit
       >&2 echo "Running command(s) in $d"
@@ -71,5 +72,5 @@ function _cdtl_eval() {
     fi
   done
 
-  cd $curr_dir || exit
+  cd "$curr_dir" || exit
 }

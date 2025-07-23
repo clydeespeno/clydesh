@@ -140,11 +140,6 @@ elif [[ -n $zone ]]; then
   overrides=$(echo "$overrides" | jq --arg zone "$zone" '.spec.nodeSelector["topology.kubernetes.io/zone"] = $zone')
 fi
 
-name=""
-if [[ $(echo "$overrides" | jq '.metadata.name') != '"null"' ]]; then
-  name=$(echo "$overrides" | jq -r '.metadata.name')
-fi
-
 if [[ -z $image ]]; then
   echo "Image is not set. Either ensure that you have an image in overrides or supply it via --i or --image"
   exit 1
@@ -171,4 +166,4 @@ fi
 [[ $KUBE_COMMAND_SHOW != false ]] && >&2 echo "kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides='$overrides' -i --tty $rm $name --image=$image ${args[@]}"
 
 # shellcheck disable=SC2046
-[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty $rm --image="$image" "$name" "${args[@]}"
+[[ $dry == "false" ]] && kubectl $(_k8_flag ctx) $(_k8_flag ns) run --overrides="$overrides" -i --tty $rm --image="$image" "${args[@]}"

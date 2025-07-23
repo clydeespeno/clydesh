@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-tf plan $@
+tf plan "$@"
 

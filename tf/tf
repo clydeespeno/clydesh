@@ -8,24 +8,22 @@ for i in "$@"; do
     -chdir=*)
       workdir="${i#*=}"
       args+=("$i")
-      shift
       ;;
     -i)
       init=auto
-      shift
       ;;
     -if)
       init=force
-      shift
       ;;
     *)
       args+=("$i")
-      shift
       ;;
   esac
 done
 
-if [[ $init == "auto" ]] && [[ -n $(ls -A "$workdir" 2>/dev/null | grep -E ".tf$") ]]; then
+
+# find is more reliable for file existence checks compared to `ls`
+if [[ $init == "auto" ]] && [[ -n $(find "$workdir" -maxdepth 1 -name "*.tf" -print -quit 2>/dev/null) ]]; then
   if [[ ! -f "${workdir}/.terraform.lock.hcl" ]] || [[ ! -d "${workdir}/.terraform" ]]; then
     echo "${workdir}/.terraform.lock.hcl is not found and there are terraform files"
     tf init
@@ -36,8 +34,12 @@ elif [[ $init == "force" ]]; then
   tf init
 fi
 
+# use TF_BIN if it's set
+# otherwise check the path of tofu
+tf_bin=${TF_BIN:-$(which tofu)}
 
 # shellcheck disable=SC2145
-[[ $TF_COMMAND_SHOW != false ]] && >&2 echo "${TF_BIN} ${args[@]}"
-${TF_BIN} ${args[@]}
+[[ $TF_COMMAND_SHOW != false ]] && >&2 echo "$tf_bin ${args[@]}"
+
+$tf_bin "${args[@]}"
 

@@ -34,14 +34,14 @@ renamed=false
 if [[ $mode == "ignore" ]]; then
   if [[ -f $workdir/.terraform/terraform.tfstate ]]; then
     echo "backend: ignore -> renaming existing backend state file before upgrade"
-    mv $workdir/.terraform/terraform.tfstate $workdir/.terraform/.tmp.terraform.tfstate
+    mv "$workdir"/.terraform/terraform.tfstate "$workdir"/.terraform/.tmp.terraform.tfstate
     renamed=true
   fi
 fi
 
-tf init ${args[@]}
+tf init "${args[@]}"
 
 if [[ $renamed == true ]]; then
   echo "backend: ignore -> moving back renamed backend state file"
-  mv $workdir/.terraform/.tmp.terraform.tfstate $workdir/.terraform/terraform.tfstate
+  mv "$workdir"/.terraform/.tmp.terraform.tfstate "$workdir"/.terraform/terraform.tfstate
 fi

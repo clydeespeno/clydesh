@@ -4,8 +4,6 @@
 export TF_SCRIPTS_DIR="$CLYDESH_HOME/tf"
 export TF_ARTIFACTS_DIR="$CLYDESH_HOME/.tf"
 export TF_DYN_DIR="$CLYDESH_HOME/.tf/dyn"
-# change the terraform provider
-export TF_BIN="${TF_BIN:-/usr/local/bin/tofu}"
 
 export PATH="$PATH:$TF_DYN_DIR"
 
@@ -13,4 +11,4 @@ mkdir -p "$TF_ARTIFACTS_DIR"
 mkdir -p "$TF_DYN_DIR"
 
 # location of templates when doing tf --props
-mkdir -p $TF_ARTIFACTS_DIR/template
+mkdir -p "$TF_ARTIFACTS_DIR"/template
